@@ -252,10 +252,10 @@ class DisplayManager:
                 
                 bbox = draw.textbbox((0, 0), time_text, font=time_font)
                 text_height = bbox[3] - bbox[1]
-                time_y = row_y + (self.ROW_HEIGHT - text_height) // 2
+                time_y = row_y + (self.ROW_HEIGHT - text_height) // 2 - 1
                 
                 draw.text(
-                    (col3_x + 2, time_y),
+                    (col3_x + 0, time_y),
                     time_text,
                     font=time_font,
                     fill=self.COLORS['cyan']
