@@ -42,7 +42,7 @@ class Config:
     """LED Matrix dimensions"""
     
     # Display Settings
-    FRAME_DURATION = 5
+    FRAME_DURATION = 10
     """Frame duration (seconds) to show each direction"""
     
     DISPLAY_FPS = 30
