@@ -56,7 +56,7 @@ class MTAClient:
             api_key: Optional MTA API key
         """
         self.api_key = api_key
-        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/"
+        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2f"
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
