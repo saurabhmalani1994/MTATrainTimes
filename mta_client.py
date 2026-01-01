@@ -3,12 +3,14 @@
 MTA GTFS-RT API Client
 Fetches and parses real-time train data from MTA
 Uses static trips.txt for destination and direction mapping
+Dynamically discovers stop IDs from real-time feed
 """
 
 import logging
 import requests
 import time
 import csv
+from collections import defaultdict
 from google.transit import gtfs_realtime_pb2
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,9 @@ class MTAClient:
         # Load trips.txt for destination and direction mapping
         self.trips_map = {}
         self.load_trips_file(trips_file)
+        
+        # Cache for discovered stop IDs
+        self.discovered_stops = defaultdict(set)  # route_id -> set of stop_ids
     
     def load_trips_file(self, trips_file):
         """Load trips.txt to map trip_id -> (destination, direction)
@@ -119,11 +124,12 @@ class MTAClient:
     def parse_feed(self, feed, stop_id, route_ids=None):
         """Parse GTFS-RT feed to extract train arrivals
         
-        Uses trips.txt static file for destination and direction info
+        Dynamically discovers which stops the trips serve
         
         Args:
             feed: FeedMessage from MTA
             stop_id: Base stop ID to filter (e.g., 'R35' for 25th St)
+                    or can be None to discover all stops
             route_ids: List of route IDs to include, or None for all routes
                       
         Returns:
@@ -133,6 +139,12 @@ class MTAClient:
         
         try:
             logger.debug(f"Parsing feed for stop_id={stop_id}, route_ids={route_ids}")
+            
+            # First pass: discover all stops if needed
+            if stop_id is None:
+                logger.info("Discovering available stops from feed...")
+                stop_id = self._discover_stops(feed, route_ids)
+                logger.info(f"Using discovered stop_id: {stop_id}")
             
             for entity in feed.entity:
                 if not entity.HasField("trip_update"):
@@ -159,17 +171,43 @@ class MTAClient:
                 
                 logger.debug(f"Trip {trip_id}: route={route_id}, direction={direction}, destination='{destination}'")
                 
-                # Determine which suffix to look for based on direction
-                stop_suffix = "N" if direction == "northbound" else "S"
-                target_stop_id = f"{stop_id}{stop_suffix}"
+                # Look for the stop - try base stop_id first, then with N/S suffix
+                stops_to_check = []
                 
-                logger.debug(f"  Looking for stop {target_stop_id}")
+                # Try with direction suffix first
+                if direction == "northbound":
+                    stops_to_check = [f"{stop_id}N", f"{stop_id}2", f"{stop_id}", 
+                                     f"{stop_id}_N", f"{stop_id}-N"]
+                else:
+                    stops_to_check = [f"{stop_id}S", f"{stop_id}1", f"{stop_id}", 
+                                     f"{stop_id}_S", f"{stop_id}-S"]
                 
-                # Find this stop in the trip's stops
+                # Also try all stops if stop_id wasn't specified
+                if stop_id is None or "R35" not in stop_id:
+                    # Try to match any stop for this route
+                    stops_to_check = [st.stop_id for st in trip_update.stop_time_update]
+                
                 found = False
                 for stop_time in trip_update.stop_time_update:
-                    if stop_time.stop_id == target_stop_id:
-                        # Found the stop we're looking for
+                    current_stop_id = stop_time.stop_id
+                    
+                    # Check if this is our target stop
+                    is_target = False
+                    
+                    # Exact match
+                    if current_stop_id == stop_id:
+                        is_target = True
+                    # Match with suffix
+                    elif f"{stop_id}N" == current_stop_id and direction == "northbound":
+                        is_target = True
+                    elif f"{stop_id}S" == current_stop_id and direction == "southbound":
+                        is_target = True
+                    # Base match (no suffix)
+                    elif current_stop_id.startswith(stop_id):
+                        is_target = True
+                    
+                    if is_target:
+                        # Get arrival time
                         arrival_time = None
                         if stop_time.HasField("arrival"):
                             arrival_time = stop_time.arrival.time
@@ -184,13 +222,15 @@ class MTAClient:
                                 direction=direction
                             )
                             trains[direction].append(train)
-                            logger.debug(f"  ✓ Added {direction} train: {route_id} to {destination}")
+                            logger.debug(f"  ✓ Added {direction} train: {route_id} to {destination} at stop {current_stop_id}")
                         
                         found = True
                         break
                 
                 if not found:
-                    logger.debug(f"  Stop {target_stop_id} not found in this trip")
+                    logger.debug(f"  Stop not found in this trip. Available stops:")
+                    for st in trip_update.stop_time_update[:3]:
+                        logger.debug(f"    - {st.stop_id}")
             
             # Sort by arrival time and limit to top 5
             for direction in ["northbound", "southbound"]:
@@ -201,12 +241,49 @@ class MTAClient:
             
             if len(trains['northbound']) == 0 and len(trains['southbound']) == 0:
                 logger.warning("No trains found! Check stop_id and route_ids settings.")
+                logger.warning(f"Looking for stop_id='{stop_id}'")
             
             return trains
             
         except Exception as e:
             logger.error(f"Error parsing feed: {e}", exc_info=True)
             return trains
+    
+    def _discover_stops(self, feed, route_ids=None):
+        """Discover the actual stop ID from the feed
+        
+        Args:
+            feed: FeedMessage from MTA
+            route_ids: Optional list of routes to focus on
+            
+        Returns:
+            Most common stop_id base (e.g., 'R35')
+        """
+        stop_counts = defaultdict(int)
+        
+        for entity in feed.entity:
+            if not entity.HasField("trip_update"):
+                continue
+            
+            trip = entity.trip_update.trip
+            
+            # Filter by route if specified
+            if route_ids and trip.route_id not in route_ids:
+                continue
+            
+            # Count stops
+            for stop_time in entity.trip_update.stop_time_update:
+                stop_id = stop_time.stop_id
+                # Extract base stop ID (remove N/S suffix)
+                base = stop_id.rstrip('NS').rstrip('12')
+                stop_counts[base] += 1
+        
+        if stop_counts:
+            most_common = max(stop_counts.items(), key=lambda x: x[1])
+            logger.info(f"Most common stop: {most_common[0]} ({most_common[1]} trips)")
+            return most_common[0]
+        
+        return "R35"  # Default fallback
     
     @staticmethod
     def get_display_name(route_id):
