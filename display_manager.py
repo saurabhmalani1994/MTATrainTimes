@@ -183,8 +183,8 @@ class DisplayManager:
             # Use smallest fonts available (2 sizes smaller)
             try:
                 # Try to load tiny fonts - 2 sizes smaller
-                font_dest = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 4)
-                font_time = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 5)
+                font_dest = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 5)
+                font_time = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 6)
             except:
                 # Fallback to default (smallest available)
                 font_dest = ImageFont.load_default()
