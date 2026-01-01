@@ -47,8 +47,8 @@ class DisplayManager:
     FONT_CONFIG = {
         'header_size': 9,      # Header font size
         'badge_size': 8,       # Train badge font size
-        'dest_size': 8,        # Destination font size
-        'time_size': 8,        # Time font size
+        'dest_size': 9,        # Destination font size
+        'time_size': 9,        # Time font size
     }
     
     def __init__(self):
@@ -78,7 +78,7 @@ class DisplayManager:
         
         # Try to find OpenSans font file
         font_paths = [
-            # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/System/Library/Fonts/Helvetica.ttc",  # macOS
             "C:\\Windows\\Fonts\\arial.ttf",  # Windows
