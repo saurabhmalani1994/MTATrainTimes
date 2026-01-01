@@ -49,7 +49,7 @@ class DisplayManager:
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
         'header_size': 9,      # Header font size
-        'badge_size': 7,       # Train badge font size
+        'badge_size': 8,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 9,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
