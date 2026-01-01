@@ -2,12 +2,13 @@
 """
 MTA GTFS-RT API Client
 Fetches and parses real-time train data from MTA
-Uses route + direction mapping to provide destinations
+Uses trips.txt for headsign/destination information
 """
 
 import logging
 import requests
 import time
+import csv
 from collections import defaultdict
 from google.transit import gtfs_realtime_pb2
 
@@ -37,102 +38,45 @@ class Train:
 class MTAClient:
     """Client for MTA GTFS-RT API"""
     
-    # Destination mapping by route and direction
-    # Based on typical NYC MTA route patterns
-    DESTINATIONS = {
-        'R': {
-            'northbound': 'Whitehall Terminal',
-            'southbound': 'Bay Ridge-95 St'
-        },
-        'N': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'Q': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'W': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Whitehall Terminal'
-        },
-        'D': {
-            'northbound': 'Norwood-205 St',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'B': {
-            'northbound': 'Bedford Park Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'M': {
-            'northbound': 'Forest Hills-71 Ave',
-            'southbound': 'Jamaica Center'
-        },
-        'F': {
-            'northbound': 'Jamaica-Van Wyck',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        '1': {
-            'northbound': 'Van Cortlandt Park-242 St',
-            'southbound': 'South Ferry'
-        },
-        '2': {
-            'northbound': 'Wakefield-241 St',
-            'southbound': 'Flatbush Ave-Brooklyn College'
-        },
-        '3': {
-            'northbound': 'Harlem-148 St',
-            'southbound': 'New Lots Ave'
-        },
-        '4': {
-            'northbound': 'Woodlawn',
-            'southbound': 'New Lots Ave'
-        },
-        '5': {
-            'northbound': 'Eastchester-Dyre Ave',
-            'southbound': 'Flatbush Ave-Brooklyn College'
-        },
-        'A': {
-            'northbound': 'Inwood-207 St',
-            'southbound': 'Far Rockaway-Mott Ave'
-        },
-        'C': {
-            'northbound': 'West 168 St',
-            'southbound': 'Euclid Ave'
-        },
-        'E': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'World Trade Center'
-        },
-        'G': {
-            'northbound': 'Court Square',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'J': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'Broad St'
-        },
-        'Z': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'Broad St'
-        },
-        'L': {
-            'northbound': '8 Ave',
-            'southbound': 'Canarsie-Rockaway'
-        },
-    }
-    
-    def __init__(self, api_key=None):
+    def __init__(self, api_key=None, trips_file="trips.txt"):
         """Initialize MTA client
         
         Args:
             api_key: Optional MTA API key
+            trips_file: Path to trips.txt GTFS static file
         """
         self.api_key = api_key
         self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2fnyct"
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
+        
+        # Load trips.txt for headsign mapping
+        self.trips_headsigns = {}  # trip_id -> headsign
+        self.load_trips_headsigns(trips_file)
+    
+    def load_trips_headsigns(self, trips_file):
+        """Load headsigns from trips.txt
+        
+        Args:
+            trips_file: Path to trips.txt GTFS file
+        """
+        try:
+            with open(trips_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    trip_id = row.get('trip_id')
+                    trip_headsign = row.get('trip_headsign', '')
+                    
+                    if trip_id and trip_headsign:
+                        self.trips_headsigns[trip_id] = trip_headsign
+            
+            logger.info(f"✓ Loaded {len(self.trips_headsigns)} headsigns from {trips_file}")
+            
+        except FileNotFoundError:
+            logger.error(f"trips.txt not found at {trips_file}")
+        except Exception as e:
+            logger.error(f"Error loading trips.txt: {e}", exc_info=True)
     
     def get_feed(self, feed_path):
         """Fetch GTFS-RT feed from MTA
@@ -166,7 +110,7 @@ class MTAClient:
     def parse_feed(self, feed, stop_id, route_ids=None):
         """Parse GTFS-RT feed to extract train arrivals
         
-        Uses route + direction mapping for destinations
+        Uses headsigns from trips.txt
         
         Args:
             feed: FeedMessage from MTA
@@ -200,6 +144,7 @@ class MTAClient:
             # Second pass: extract trains
             processed = 0
             matched = 0
+            not_found_in_trips = 0
             
             for entity in feed.entity:
                 if not entity.HasField("trip_update"):
@@ -207,6 +152,7 @@ class MTAClient:
                 
                 trip_update = entity.trip_update
                 trip = trip_update.trip
+                trip_id = trip.trip_id
                 route_id = trip.route_id
                 
                 processed += 1
@@ -215,6 +161,14 @@ class MTAClient:
                 if route_ids is not None:
                     if route_id not in route_ids:
                         continue
+                
+                # Get headsign from trips.txt
+                destination = "Unknown"
+                if trip_id in self.trips_headsigns:
+                    destination = self.trips_headsigns[trip_id]
+                else:
+                    not_found_in_trips += 1
+                    logger.debug(f"Trip {trip_id} not found in trips.txt headsigns")
                 
                 # Check each stop in the trip
                 for stop_time in trip_update.stop_time_update:
@@ -244,11 +198,6 @@ class MTAClient:
                             direction_id = trip.direction_id if hasattr(trip, 'direction_id') else 0
                             direction = "northbound" if direction_id == 0 else "southbound"
                         
-                        # Get destination from mapping (or Unknown as fallback)
-                        destination = "Unknown"
-                        if route_id in self.DESTINATIONS:
-                            destination = self.DESTINATIONS[route_id].get(direction, "Unknown")
-                        
                         # Get arrival time
                         arrival_time = None
                         if stop_time.HasField("arrival"):
@@ -270,6 +219,8 @@ class MTAClient:
                         break  # Found this trip's stop, move to next trip
             
             logger.info(f"Processed {processed} trips, matched {matched} to stop '{stop_id}'")
+            if not_found_in_trips > 0:
+                logger.warning(f"⚠ {not_found_in_trips} trips had no headsign in trips.txt (showed as 'Unknown')")
             
             # Sort by arrival time and limit to top 5
             for direction in ["northbound", "southbound"]:

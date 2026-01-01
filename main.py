@@ -27,8 +27,11 @@ class MTATrainDisplay:
     def __init__(self):
         """Initialize the display application"""
         self.config = Config
-        # Initialize MTA client - uses only real-time feed data
-        self.mta_client = MTAClient(api_key=self.config.MTA_API_KEY)
+        # Initialize MTA client with trips.txt for headsigns
+        self.mta_client = MTAClient(
+            api_key=self.config.MTA_API_KEY,
+            trips_file="trips.txt"
+        )
         self.display_manager = DisplayManager()
         
         self.running = False
@@ -45,7 +48,7 @@ class MTATrainDisplay:
     def fetch_train_data(self):
         """Fetch train data from MTA API
         
-        Uses real-time feed from MTA (no external files needed)
+        Combines real-time feed with static headsigns from trips.txt
         """
         try:
             feed = self.mta_client.get_feed(self.config.FEED_PATH)
@@ -53,7 +56,7 @@ class MTATrainDisplay:
                 logger.warning("Failed to fetch feed data")
                 return
             
-            # Parse feed - extracts destination and direction from real-time data
+            # Parse feed - headsigns from trips.txt, real-time data from MTA
             self.train_data = self.mta_client.parse_feed(
                 feed, 
                 self.config.STOP_ID,
