@@ -404,7 +404,7 @@ class DisplayManager:
             
             # Center in circle, with +1 pixel right and -2 pixels up
             text_x = circle_x - text_width // 2 + 0  # 1 pixel right
-            text_y = circle_y - text_height // 2 - 2  # 2 pixels up
+            text_y = circle_y - text_height // 2 - 3  # 2 pixels up
             
             # Draw text
             draw.text(
