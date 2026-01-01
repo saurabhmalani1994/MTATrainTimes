@@ -392,23 +392,25 @@ class DisplayManager:
                 # Text is too long - animate sliding
                 offset = self._calculate_slide_offset(destination, max_width)
                 
-                # Create a clipping region for the destination column
-                # Draw on temporary image to handle clipping
-                temp_img = Image.new('RGB', (max_width + 4, self.ROW_HEIGHT), self.COLORS['black'])
+                # Create a temporary image for the clipped destination column
+                temp_img = Image.new('RGB', (max_width, self.ROW_HEIGHT), self.COLORS['black'])
                 temp_draw = ImageDraw.Draw(temp_img)
                 
-                # Draw text at offset position
+                # Calculate vertical centering within temp image
+                temp_text_y = (self.ROW_HEIGHT - text_height) // 2
+                
+                # Draw text at offset position on temp image
                 temp_draw.text(
-                    (2 - offset, self.ROW_HEIGHT // 2 - text_height // 2),
+                    (2 - offset, temp_text_y),
                     destination,
                     font=font,
                     fill=self.COLORS['white']
                 )
                 
-                # Paste the clipped destination column back to main image
+                # Paste the clipped destination column to main image
+                # Use proper 4-tuple bounding box: (x1, y1, x2, y2)
                 main_img = draw.im
-                region = temp_img.crop((0, 0, max_width, self.ROW_HEIGHT))
-                main_img.paste(region, (x_pos + 2, y_pos))
+                main_img.paste(temp_img, (x_pos + 2, y_pos, x_pos + 2 + max_width, y_pos + self.ROW_HEIGHT))
                 
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
