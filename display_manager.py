@@ -211,13 +211,42 @@ class DisplayManager:
             img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
             draw = ImageDraw.Draw(img)
             
-            # Draw header
-            self.draw_header(draw, direction)
-            
-            # Draw train rows
+            # STEP 1: Draw all sliding destination text first
             for idx, train in enumerate(trains[:2]):
                 row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 2
-                self.draw_train_row(draw, train, row_y, idx)
+                col2_x = self.COL_WIDTHS[0]
+                font = self.fonts['dest']
+                self.draw_destination_text_only(draw, train.destination, col2_x, row_y, font)
+            
+            # STEP 2: Draw black clipping rectangles to hide overflow
+            for idx, train in enumerate(trains[:2]):
+                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 2
+                col2_x = self.COL_WIDTHS[0]
+                self.draw_clipping_rectangles(draw, col2_x, row_y)
+            
+            # STEP 3: Draw badges and time (on top of clipping rectangles)
+            for idx, train in enumerate(trains[:2]):
+                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 2
+                self.draw_train_badge(draw, train.route_id, row_y)
+                
+                # Draw time
+                col3_x = self.COL_WIDTHS[0] + self.COL_WIDTHS[1]
+                minutes = train.get_minutes_to_arrival()
+                time_text = self.format_time_text(minutes)
+                time_font = self.fonts['time']
+                bbox = draw.textbbox((0, 0), time_text, font=time_font)
+                text_height = bbox[3] - bbox[1]
+                time_y = row_y + (self.ROW_HEIGHT - text_height) // 2
+                
+                draw.text(
+                    (col3_x + 2, time_y),
+                    time_text,
+                    font=time_font,
+                    fill=self.COLORS['cyan']
+                )
+            
+            # STEP 4: Draw header (NORTHBOUND/SOUTHBOUND) on top of everything
+            self.draw_header(draw, direction)
             
             # Display or save
             if self.test_mode:
@@ -264,50 +293,71 @@ class DisplayManager:
         except Exception as e:
             logger.error(f"Error drawing header: {e}")
     
-    def draw_train_row(self, draw, train, y_pos, row_idx):
+    def draw_destination_text_only(self, draw, destination, x_pos, y_pos, font):
         """
-        Draw a single train row with three columns
-        Layout: [Train # in red circle] [Destination (sliding)] [Time]
-        Using OpenSans TrueType font
+        Draw ONLY the destination text with sliding animation if too long
+        Does not draw clipping rectangles - those are drawn separately
         
         Args:
             draw: PIL ImageDraw object
-            train: Train object
-            y_pos: Y position of row
-            row_idx: Row index (0 or 1)
+            destination: Destination string
+            x_pos: X position of column
+            y_pos: Y position
+            font: Font to use
         """
         try:
-            font = self.fonts['dest']
-            
-            # Column 1: Train number in red circle
-            self.draw_train_badge(draw, train.route_id, y_pos)
-            
-            # Column 2: Destination (with sliding animation)
-            col2_x = self.COL_WIDTHS[0]
-            self.draw_destination_sliding(draw, train.destination, col2_x, y_pos, font)
-            
-            # Column 3: Time to arrival
-            col3_x = self.COL_WIDTHS[0] + self.COL_WIDTHS[1]
-            minutes = train.get_minutes_to_arrival()
-            time_text = self.format_time_text(minutes)
-            
-            # Get bounding box for proper alignment
-            time_font = self.fonts['time']
-            bbox = draw.textbbox((0, 0), time_text, font=time_font)
+            # Get text dimensions
+            bbox = draw.textbbox((0, 0), destination, font=font)
+            text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Vertically center time in row
-            time_y = y_pos + (self.ROW_HEIGHT - text_height) // 2
+            # Max width for destination column
+            max_width = self.DEST_MAX_WIDTH
             
+            # Vertically center text in row
+            text_y = y_pos + (self.ROW_HEIGHT - text_height) // 2
+            
+            # Calculate offset for animation
+            offset = self._calculate_slide_offset(destination, max_width)
+            
+            # Draw text with offset (handles both short and long text)
             draw.text(
-                (col3_x + 2, time_y),
-                time_text,
-                font=time_font,
-                fill=self.COLORS['cyan']
+                (x_pos + 2 - offset, text_y),
+                destination,
+                font=font,
+                fill=self.COLORS['white']
             )
             
         except Exception as e:
-            logger.error(f"Error drawing train row: {e}")
+            logger.error(f"Error drawing destination text: {e}")
+    
+    def draw_clipping_rectangles(self, draw, x_pos, y_pos):
+        """
+        Draw black rectangles to hide text overflow on both sides
+        This is drawn AFTER the text but BEFORE badges and time
+        
+        Args:
+            draw: PIL ImageDraw object
+            x_pos: X position of destination column
+            y_pos: Y position of row
+        """
+        try:
+            max_width = self.DEST_MAX_WIDTH
+            
+            # Left clipping rectangle - hide overflow into badge column
+            draw.rectangle(
+                [(0, y_pos), (x_pos + 2 - 1, y_pos + self.ROW_HEIGHT - 1)],
+                fill=self.COLORS['black']
+            )
+            
+            # Right clipping rectangle - hide overflow into time column
+            draw.rectangle(
+                [(x_pos + 2 + max_width, y_pos), (self.DISPLAY_WIDTH - 1, y_pos + self.ROW_HEIGHT - 1)],
+                fill=self.COLORS['black']
+            )
+            
+        except Exception as e:
+            logger.error(f"Error drawing clipping rectangles: {e}")
     
     def draw_train_badge(self, draw, route_id, y_pos):
         """
@@ -355,69 +405,6 @@ class DisplayManager:
             
         except Exception as e:
             logger.error(f"Error drawing train badge: {e}")
-    
-    def draw_destination_sliding(self, draw, destination, x_pos, y_pos, font):
-        """
-        Draw destination text with sliding animation if too long
-        Text slides back and forth to show full length
-        Clipped to stay within destination column bounds
-        
-        Args:
-            draw: PIL ImageDraw object
-            destination: Destination string
-            x_pos: X position of column
-            y_pos: Y position
-            font: Font to use
-        """
-        try:
-            # Get text dimensions
-            bbox = draw.textbbox((0, 0), destination, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
-            
-            # Max width for destination column
-            max_width = self.DEST_MAX_WIDTH
-            
-            # Vertically center text in row
-            text_y = y_pos + (self.ROW_HEIGHT - text_height) // 2
-            
-            # If text fits, just draw it
-            if text_width <= max_width:
-                draw.text(
-                    (x_pos + 2, text_y),
-                    destination,
-                    font=font,
-                    fill=self.COLORS['white']
-                )
-            else:
-                # Text is too long - animate sliding with clipping
-                offset = self._calculate_slide_offset(destination, max_width)
-                
-                # Draw text directly on main image with offset
-                draw.text(
-                    (x_pos + 2 - offset, text_y),
-                    destination,
-                    font=font,
-                    fill=self.COLORS['white']
-                )
-                
-                # Only clip the text area, not the badge or header
-                # Overdraw left side (hide overflow into badge column)
-                # Only clip the text height area, not the entire row
-                draw.rectangle(
-                    [(0, text_y), (x_pos + 2 - 1, text_y + text_height - 1)],
-                    fill=self.COLORS['black']
-                )
-                
-                # Overdraw right side (hide overflow into time column)
-                # Only clip the text height area, not the entire row
-                draw.rectangle(
-                    [(x_pos + 2 + max_width, text_y), (self.DISPLAY_WIDTH - 1, text_y + text_height - 1)],
-                    fill=self.COLORS['black']
-                )
-                
-        except Exception as e:
-            logger.error(f"Error drawing destination: {e}")
     
     def _calculate_slide_offset(self, text, max_width):
         """
