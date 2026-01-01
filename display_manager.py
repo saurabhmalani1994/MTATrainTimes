@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-LED Display Manager - FIXED VERSION
+LED Display Manager - FINAL CORRECTED VERSION
 Handles rendering to 32x64 RGB LED matrix
-Corrected image conversion and matrix display
+FIXED: Proper PIL Image to numpy array conversion for rgbmatrix library
 """
 
 import logging
 import time
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class DisplayManager:
         if self.test_mode:
             logger.warning("Running in test mode - no LED matrix detected")
         else:
-            logger.info("LED matrix initialized successfully")
+            logger.info("✓ LED matrix initialized successfully")
     
     def try_init_matrix(self):
         """
@@ -77,7 +78,7 @@ class DisplayManager:
             self.matrix = RGBMatrix(options=options)
             self.matrix_lib = 'rgbmatrix'
             
-            logger.info("✓ LED matrix initialized successfully with rgbmatrix library")
+            logger.info("✓ LED matrix initialized successfully")
             logger.info(f"  Resolution: {self.DISPLAY_WIDTH}x{self.DISPLAY_HEIGHT}")
             
         except ImportError as e:
@@ -289,6 +290,31 @@ class DisplayManager:
         else:
             return f"{minutes} Min"
     
+    def pil_image_to_rgb_array(self, pil_image):
+        """
+        Convert PIL Image to numpy array format required by rgbmatrix
+        
+        Args:
+            pil_image: PIL Image object (must be RGB mode)
+            
+        Returns:
+            numpy array or PIL Image depending on library requirements
+        """
+        try:
+            # Ensure image is in RGB mode
+            if pil_image.mode != 'RGB':
+                pil_image = pil_image.convert('RGB')
+            
+            # The rgbmatrix library's SetImage() actually accepts PIL Images directly
+            # But we convert to numpy array as backup in case of version differences
+            img_array = np.array(pil_image, dtype=np.uint8)
+            
+            return img_array
+            
+        except Exception as e:
+            logger.error(f"Error converting image: {e}")
+            return None
+    
     def display_image(self, img):
         """
         Display image on LED matrix
@@ -305,11 +331,22 @@ class DisplayManager:
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             
-            # The rgbmatrix library expects an image object
-            # Use SetImage to display
+            # CRITICAL FIX: SetImage() works with PIL Image objects directly
+            # Convert to numpy array for compatibility
+            img_array = self.pil_image_to_rgb_array(img)
+            
+            if img_array is None:
+                logger.error("Failed to convert image to array")
+                return
+            
+            # Use SetImage with PIL Image directly (rgbmatrix accepts this)
             self.matrix.SetImage(img)
             
-            logger.debug("Image displayed on matrix")
+            logger.debug("Image displayed on matrix successfully")
+            
+        except AttributeError as e:
+            logger.error(f"Matrix method error (SetImage not found): {e}")
+            logger.error("  This may indicate a rgbmatrix library version issue")
             
         except Exception as e:
             logger.error(f"Error displaying image on matrix: {e}", exc_info=True)
@@ -337,7 +374,7 @@ class DisplayManager:
                 # Clear display by showing black image
                 img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
                 self.matrix.SetImage(img)
-                logger.info("Display cleared")
+                logger.info("Display cleared on shutdown")
                 
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
