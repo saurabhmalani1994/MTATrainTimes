@@ -41,85 +41,17 @@ class MTAClient:
     # Based on typical NYC MTA route patterns
     DESTINATIONS = {
         'R': {
-            'northbound': 'Whitehall Terminal',
-            'southbound': 'Bay Ridge-95 St'
+            'northbound': 'Manhattan',
+            'southbound': 'Bay Ridge'
         },
         'N': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'Q': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'W': {
-            'northbound': 'Astoria-Ditmars Blvd',
-            'southbound': 'Whitehall Terminal'
+            'northbound': 'Manhattan',
+            'southbound': 'Coney Island'
         },
         'D': {
-            'northbound': 'Norwood-205 St',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'B': {
-            'northbound': 'Bedford Park Blvd',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'M': {
-            'northbound': 'Forest Hills-71 Ave',
-            'southbound': 'Jamaica Center'
-        },
-        'F': {
-            'northbound': 'Jamaica-Van Wyck',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        '1': {
-            'northbound': 'Van Cortlandt Park-242 St',
-            'southbound': 'South Ferry'
-        },
-        '2': {
-            'northbound': 'Wakefield-241 St',
-            'southbound': 'Flatbush Ave-Brooklyn College'
-        },
-        '3': {
-            'northbound': 'Harlem-148 St',
-            'southbound': 'New Lots Ave'
-        },
-        '4': {
-            'northbound': 'Woodlawn',
-            'southbound': 'New Lots Ave'
-        },
-        '5': {
-            'northbound': 'Eastchester-Dyre Ave',
-            'southbound': 'Flatbush Ave-Brooklyn College'
-        },
-        'A': {
-            'northbound': 'Inwood-207 St',
-            'southbound': 'Far Rockaway-Mott Ave'
-        },
-        'C': {
-            'northbound': 'West 168 St',
-            'southbound': 'Euclid Ave'
-        },
-        'E': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'World Trade Center'
-        },
-        'G': {
-            'northbound': 'Court Square',
-            'southbound': 'Coney Island-Stillwell'
-        },
-        'J': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'Broad St'
-        },
-        'Z': {
-            'northbound': 'Jamaica Center',
-            'southbound': 'Broad St'
-        },
-        'L': {
-            'northbound': '8 Ave',
-            'southbound': 'Canarsie-Rockaway'
-        },
+            'northbound': 'Manhattan',
+            'southbound': 'Coney Island'
+        }
     }
     
     def __init__(self, api_key=None):
