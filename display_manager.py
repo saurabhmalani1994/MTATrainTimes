@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 """
-LED Display Manager - OPENSANS TRUETYPE FONT WITH TUNABLE SIZES
+LED Display Manager - OPENSANS TRUETYPE FONT WITH SLIDING DESTINATIONS
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
 
 FEATURES:
 - OpenSans TrueType font rendering
+- Sliding destination text animation
 - Tunable font sizes via configuration
 - All previous fixes maintained
 """
@@ -42,6 +43,7 @@ class DisplayManager:
     ROW_HEIGHT = 13
     COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
+    DEST_COL_X = 12  # Starting X position of destination column
     
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
@@ -49,6 +51,14 @@ class DisplayManager:
         'badge_size': 7,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 9,        # Time font size
+    }
+    
+    # Sliding animation configuration
+    SLIDE_CONFIG = {
+        'enabled': True,           # Enable sliding animation
+        'speed': 2,                # Pixels per frame
+        'pause_frames': 30,        # Frames to pause at edges
+        'cycle_duration': 120,     # Total frames per complete cycle
     }
     
     def __init__(self):
@@ -61,6 +71,10 @@ class DisplayManager:
         
         # Load OpenSans TrueType fonts
         self.fonts = self._load_fonts()
+        
+        # Animation state for destinations
+        self.slide_state = {}  # destination -> slide position
+        self.frame_count = 0   # Global frame counter for animation
         
         if self.test_mode:
             logger.warning("Running in test mode - no LED matrix detected")
@@ -77,7 +91,6 @@ class DisplayManager:
         fonts = {}
         
         # Try to find OpenSans font file
-        # Try to find OpenSans font file
         font_paths = [
             # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             # "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
@@ -86,7 +99,6 @@ class DisplayManager:
             "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
         ]
-        
         
         # First try to find OpenSans specifically
         opensans_paths = [
@@ -192,6 +204,9 @@ class DisplayManager:
             trains: List of Train objects (up to 2)
         """
         try:
+            # Increment frame counter for animations
+            self.frame_count += 1
+            
             # Create image for rendering
             img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
             draw = ImageDraw.Draw(img)
@@ -252,7 +267,7 @@ class DisplayManager:
     def draw_train_row(self, draw, train, y_pos, row_idx):
         """
         Draw a single train row with three columns
-        Layout: [Train # in red circle] [Destination] [Time]
+        Layout: [Train # in red circle] [Destination (sliding)] [Time]
         Using OpenSans TrueType font
         
         Args:
@@ -267,9 +282,9 @@ class DisplayManager:
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
             
-            # Column 2: Destination
+            # Column 2: Destination (with sliding animation)
             col2_x = self.COL_WIDTHS[0]
-            self.draw_destination(draw, train.destination, col2_x, y_pos, font)
+            self.draw_destination_sliding(draw, train.destination, col2_x, y_pos, font)
             
             # Column 3: Time to arrival
             col3_x = self.COL_WIDTHS[0] + self.COL_WIDTHS[1]
@@ -341,10 +356,10 @@ class DisplayManager:
         except Exception as e:
             logger.error(f"Error drawing train badge: {e}")
     
-    def draw_destination(self, draw, destination, x_pos, y_pos, font):
+    def draw_destination_sliding(self, draw, destination, x_pos, y_pos, font):
         """
-        Draw destination text with truncation if too long
-        Using OpenSans TrueType font
+        Draw destination text with sliding animation if too long
+        Text slides back and forth to show full length
         
         Args:
             draw: PIL ImageDraw object
@@ -374,26 +389,92 @@ class DisplayManager:
                     fill=self.COLORS['white']
                 )
             else:
-                # Text is too long - truncate
-                truncated = destination
-                while len(truncated) > 0:
-                    bbox = draw.textbbox((0, 0), truncated + ".", font=font)
-                    if bbox[2] - bbox[0] <= max_width - 2:
-                        break
-                    truncated = truncated[:-1]
+                # Text is too long - animate sliding
+                offset = self._calculate_slide_offset(destination, max_width)
                 
-                if not truncated:
-                    truncated = destination[0] if destination else "?"
+                # Create a clipping region for the destination column
+                # Draw on temporary image to handle clipping
+                temp_img = Image.new('RGB', (max_width + 4, self.ROW_HEIGHT), self.COLORS['black'])
+                temp_draw = ImageDraw.Draw(temp_img)
                 
-                draw.text(
-                    (x_pos + 2, text_y),
-                    truncated + ".",
+                # Draw text at offset position
+                temp_draw.text(
+                    (2 - offset, self.ROW_HEIGHT // 2 - text_height // 2),
+                    destination,
                     font=font,
                     fill=self.COLORS['white']
                 )
                 
+                # Paste the clipped destination column back to main image
+                main_img = draw.im
+                region = temp_img.crop((0, 0, max_width, self.ROW_HEIGHT))
+                main_img.paste(region, (x_pos + 2, y_pos))
+                
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
+    
+    def _calculate_slide_offset(self, text, max_width):
+        """
+        Calculate the horizontal offset for sliding text animation
+        Text slides back and forth smoothly
+        
+        Args:
+            text: Text to slide
+            max_width: Maximum width available
+            
+        Returns:
+            Pixel offset for text position
+        """
+        try:
+            font = self.fonts['dest']
+            bbox = ImageDraw.Draw(Image.new('RGB', (1, 1))).textbbox(
+                (0, 0), text, font=font
+            )
+            text_width = bbox[2] - bbox[0]
+            
+            if text_width <= max_width:
+                return 0
+            
+            # Distance to slide
+            slide_distance = text_width - max_width + 5  # 5px margin
+            
+            # Get animation state
+            cycle = self.SLIDE_CONFIG['cycle_duration']
+            speed = self.SLIDE_CONFIG['speed']
+            pause = self.SLIDE_CONFIG['pause_frames']
+            
+            # Calculate position in cycle
+            frame = self.frame_count % cycle
+            
+            # Phases:
+            # 0: Pause at start
+            # pause: Slide right
+            # pause + slide_frames: Pause at end
+            # pause + slide_frames + pause: Slide left
+            # Total = cycle
+            
+            slide_frames = (cycle - 2 * pause) // 2
+            
+            if frame < pause:
+                # Pause at start
+                offset = 0
+            elif frame < pause + slide_frames:
+                # Slide right
+                progress = frame - pause
+                offset = int((progress / slide_frames) * slide_distance)
+            elif frame < pause + slide_frames + pause:
+                # Pause at end
+                offset = slide_distance
+            else:
+                # Slide left
+                progress = frame - (pause + slide_frames + pause)
+                offset = int(slide_distance - (progress / slide_frames) * slide_distance)
+            
+            return offset
+            
+        except Exception as e:
+            logger.error(f"Error calculating slide offset: {e}")
+            return 0
     
     def format_time_text(self, minutes):
         """Format arrival time for display"""
