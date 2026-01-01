@@ -193,7 +193,7 @@ class DisplayManager:
         """
         try:
             # Use crisp single-layer font
-            font = self.font
+            font = ImageFont.load_default(size=8)
             
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
@@ -259,8 +259,8 @@ class DisplayManager:
             text_height = bbox[3] - bbox[1]
             
             # Center in circle, with +1 pixel right and -2 pixels up (already applied to circle_y)
-            text_x = circle_x - text_width // 2 + 1  # 1 pixel right
-            text_y = circle_y - text_height // 2
+            text_x = circle_x - text_width // 2 + 0  # 1 pixel right
+            text_y = circle_y - text_height // 2 - 2  # 2 pixels up
             
             # Draw text - single-layer crisp rendering
             draw.text(
