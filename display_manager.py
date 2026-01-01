@@ -137,8 +137,8 @@ class DisplayManager:
                 fonts['header'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['header_size'])
                 fonts['badge'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['badge_size'])
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
-                fonts['time'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['time_size'])
-                fonts['time_now'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['time_now_size'])
+                fonts['time'] = ImageFont.truetype(noto_fontfile, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(noto_fontfile, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -191,7 +191,7 @@ class DisplayManager:
             options.parallel = 1
             options.hardware_mapping = "regular"
             options.gpio_slowdown = 2
-            options.brightness = 80
+            options.brightness = 40
             
             # Create matrix
             self.matrix = RGBMatrix(options=options)
