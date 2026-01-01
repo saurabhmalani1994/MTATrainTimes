@@ -71,7 +71,7 @@ class MTAClient:
             Parsed FeedMessage or None on error
         """
         try:
-            url = f"{self.base_url}%2fnyct/{feed_path}"
+            url = f"{self.base_url}nyct/{feed_path}"
             logger.debug(f"Fetching from {url}")
             
             response = self.session.get(url, timeout=10)
