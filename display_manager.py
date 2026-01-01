@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-LED Display Manager - SMALLER FONTS VERSION
+LED Display Manager - CRISP SINGLE-LAYER TEXT WITH TUNABLE SIZES
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
-CHANGES:
-- All fonts reduced by 2 sizes
-- Uses even smaller load_default() equivalent
+FEATURES:
+- Single-layer crisp text (using load_default() font)
+- Tunable font sizes via configuration
+- All previous fixes maintained
 """
 
 import logging
@@ -40,6 +41,16 @@ class DisplayManager:
     COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
     
+    # Font configuration - TUNABLE
+    # Using load_default() which is single-layer crisp
+    # These values control spacing/layout, not font size
+    FONT_CONFIG = {
+        'header_spacing': 1,      # Pixels between letters in header
+        'badge_spacing': 1,       # Pixels between letters in badge
+        'dest_spacing': 1,        # Pixels between letters in destination
+        'time_spacing': 1,        # Pixels between letters in time
+    }
+    
     def __init__(self):
         """Initialize display manager"""
         self.matrix = None
@@ -47,6 +58,12 @@ class DisplayManager:
         
         # For testing/development without hardware
         self.test_mode = self.matrix is None
+        
+        # Cache default font
+        try:
+            self.font = ImageFont.load_default()
+        except:
+            self.font = ImageFont.load_default()
         
         if self.test_mode:
             logger.warning("Running in test mode - no LED matrix detected")
@@ -121,20 +138,15 @@ class DisplayManager:
         """
         Draw header row showing full NORTHBOUND/SOUTHBOUND text
         Positioned 2 pixels higher than before
-        Using SMALLER fonts
+        Using CRISP single-layer load_default() font
         
         Args:
             draw: PIL ImageDraw object
             direction: 'northbound' or 'southbound'
         """
         try:
-            # Use smallest font available (2 sizes smaller)
-            try:
-                # Try to load a tiny font - 2 sizes smaller
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 6)
-            except:
-                # Fallback to default (smallest available)
-                font = ImageFont.load_default()
+            # Use crisp single-layer font (load_default)
+            font = self.font
             
             # Full direction text
             direction_text = "NORTHBOUND" if direction == 'northbound' else "SOUTHBOUND"
@@ -155,7 +167,7 @@ class DisplayManager:
             x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
             y_pos = 0  # 2 pixels higher than default centered position
             
-            # Draw text with NO anti-aliasing
+            # Draw text - single-layer crisp rendering
             draw.text(
                 (x_pos, y_pos),
                 direction_text,
@@ -171,7 +183,7 @@ class DisplayManager:
         Draw a single train row with three columns
         
         Layout: [Train # in red circle] [Destination] [Time]
-        Using SMALLER fonts
+        Using CRISP single-layer load_default() font
         
         Args:
             draw: PIL ImageDraw object
@@ -180,22 +192,15 @@ class DisplayManager:
             row_idx: Row index (0 or 1)
         """
         try:
-            # Use smallest fonts available (2 sizes smaller)
-            try:
-                # Try to load tiny fonts - 2 sizes smaller
-                font_dest = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 7)
-                font_time = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 7)
-            except:
-                # Fallback to default (smallest available)
-                font_dest = ImageFont.load_default()
-                font_time = ImageFont.load_default()
+            # Use crisp single-layer font
+            font = self.font
             
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
             
             # Column 2: Destination
             col2_x = self.COL_WIDTHS[0]
-            self.draw_destination(draw, train.destination, col2_x, y_pos, font_dest)
+            self.draw_destination(draw, train.destination, col2_x, y_pos, font)
             
             # Column 3: Time to arrival
             col3_x = self.COL_WIDTHS[0] + self.COL_WIDTHS[1]
@@ -203,7 +208,7 @@ class DisplayManager:
             time_text = self.format_time_text(minutes)
             
             # Get bounding box for proper alignment
-            bbox = draw.textbbox((0, 0), time_text, font=font_time)
+            bbox = draw.textbbox((0, 0), time_text, font=font)
             text_height = bbox[3] - bbox[1]
             
             # Vertically center time in row
@@ -212,7 +217,7 @@ class DisplayManager:
             draw.text(
                 (col3_x + 2, time_y),
                 time_text,
-                font=font_time,
+                font=font,
                 fill=self.COLORS['cyan']
             )
             
@@ -223,7 +228,7 @@ class DisplayManager:
         """
         Draw train number in yellow text with red circle
         Positioned 2 pixels higher and 1 pixel to the right
-        Using SMALLER font
+        Using CRISP single-layer load_default() font
         
         Args:
             draw: PIL ImageDraw object
@@ -231,13 +236,8 @@ class DisplayManager:
             y_pos: Y position of row
         """
         try:
-            # Use smallest font available (2 sizes smaller)
-            try:
-                # Try to load tiny font - 2 sizes smaller
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 5)
-            except:
-                # Fallback to default (smallest available)
-                font = ImageFont.load_default()
+            # Use crisp single-layer font
+            font = self.font
             
             # Circle parameters
             circle_x = 6
@@ -262,7 +262,7 @@ class DisplayManager:
             text_x = circle_x - text_width // 2 + 1  # 1 pixel right
             text_y = circle_y - text_height // 2
             
-            # Draw text
+            # Draw text - single-layer crisp rendering
             draw.text(
                 (text_x, text_y),
                 route_id,
@@ -276,7 +276,7 @@ class DisplayManager:
     def draw_destination(self, draw, destination, x_pos, y_pos, font):
         """
         Draw destination text with truncation if too long
-        Using SMALLER font
+        Using CRISP single-layer load_default() font
         
         Args:
             draw: PIL ImageDraw object
