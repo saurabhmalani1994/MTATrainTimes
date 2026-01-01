@@ -46,7 +46,7 @@ class DisplayManager:
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
         'header_size': 9,      # Header font size
-        'badge_size': 8,       # Train badge font size
+        'badge_size': 7,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 9,        # Time font size
     }
@@ -77,12 +77,16 @@ class DisplayManager:
         fonts = {}
         
         # Try to find OpenSans font file
+        # Try to find OpenSans font file
         font_paths = [
             # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             # "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",  # macOS
-            "C:\\Windows\\Fonts\\arial.ttf",  # Windows
+            "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
         ]
+        
         
         # First try to find OpenSans specifically
         opensans_paths = [
