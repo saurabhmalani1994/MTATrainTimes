@@ -61,7 +61,7 @@ class DisplayManager:
         
         # Cache default font
         try:
-            self.font = ImageFont.load_default()
+            self.font = ImageFont.load_default(size=7)
         except:
             self.font = ImageFont.load_default()
         
