@@ -6,7 +6,7 @@ Handles rendering to 32x64 RGB LED matrix using SetPixel() method
 
 FEATURES:
 - OpenSans TrueType font rendering
-- Sliding destination text animation
+- Sliding destination text animation with proper clipping
 - Tunable font sizes via configuration
 - All previous fixes maintained
 """
@@ -92,12 +92,12 @@ class DisplayManager:
         
         # Try to find OpenSans font file
         font_paths = [
-            # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            # "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
             "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
             "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         ]
         
         # First try to find OpenSans specifically
@@ -360,6 +360,7 @@ class DisplayManager:
         """
         Draw destination text with sliding animation if too long
         Text slides back and forth to show full length
+        Properly clipped to stay within destination column bounds
         
         Args:
             draw: PIL ImageDraw object
@@ -389,17 +390,29 @@ class DisplayManager:
                     fill=self.COLORS['white']
                 )
             else:
-                # Text is too long - animate sliding
+                # Text is too long - animate sliding with clipping
                 offset = self._calculate_slide_offset(destination, max_width)
                 
-                # Draw directly with offset (simpler approach)
-                # Text will be clipped naturally by PIL at edges
-                draw.text(
-                    (x_pos + 2 - offset, text_y),
+                # Get the main image for manipulation
+                img = draw.im
+                
+                # Create a temporary image for just the destination column area
+                # This ensures text is clipped and doesn't bleed into adjacent columns
+                temp_img = Image.new('RGB', (max_width, self.ROW_HEIGHT), self.COLORS['black'])
+                temp_draw = ImageDraw.Draw(temp_img)
+                
+                # Draw text on temporary image with offset applied
+                # The text position accounts for vertical centering
+                temp_draw.text(
+                    (2 - offset, (self.ROW_HEIGHT - text_height) // 2),
                     destination,
                     font=font,
                     fill=self.COLORS['white']
                 )
+                
+                # Paste the clipped region back to the main image
+                # This is the key: we paste the temp_img which contains only the visible portion
+                img.paste(temp_img, (x_pos + 2, y_pos))
                 
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
