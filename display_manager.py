@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-LED Display Manager
+LED Display Manager - FIXED VERSION
 Handles rendering to 32x64 RGB LED matrix
+Corrected image conversion and matrix display
 """
 
 import logging
@@ -39,6 +40,7 @@ class DisplayManager:
     def __init__(self):
         """Initialize display manager"""
         self.matrix = None
+        self.matrix_lib = None
         self.try_init_matrix()
         
         # For testing/development without hardware
@@ -52,13 +54,15 @@ class DisplayManager:
     def try_init_matrix(self):
         """
         Try to initialize the LED matrix hardware
-        
-        Supports both rpi-rgb-led-matrix and rgbmatrix libraries
+        Supports rpi-rgb-led-matrix library with proper error handling
         """
         try:
-            # Try adafruit rgbmatrix library first
+            # Import the library first
             from rgbmatrix import RGBMatrix, RGBMatrixOptions
             
+            logger.debug("rgbmatrix library found, initializing...")
+            
+            # Create options
             options = RGBMatrixOptions()
             options.rows = self.DISPLAY_HEIGHT
             options.cols = self.DISPLAY_WIDTH
@@ -66,18 +70,33 @@ class DisplayManager:
             options.parallel = 1
             options.hardware_mapping = 'adafruit-hat'
             options.gpio_slowdown = 2
+            options.brightness = 100
+            options.pwm_bits = 11
             
+            # Try to create matrix
             self.matrix = RGBMatrix(options=options)
-            logger.info("Initialized with rgbmatrix library")
-            return
+            self.matrix_lib = 'rgbmatrix'
             
-        except ImportError:
-            logger.debug("rgbmatrix library not available")
+            logger.info("✓ LED matrix initialized successfully with rgbmatrix library")
+            logger.info(f"  Resolution: {self.DISPLAY_WIDTH}x{self.DISPLAY_HEIGHT}")
+            
+        except ImportError as e:
+            logger.debug(f"rgbmatrix library not available: {e}")
+            self.matrix = None
+            self.matrix_lib = None
+            
+        except PermissionError as e:
+            logger.error(f"Permission denied accessing GPIO: {e}")
+            logger.error("  Hint: Run with sudo or set proper permissions")
+            self.matrix = None
+            self.matrix_lib = None
+            
         except Exception as e:
-            logger.debug(f"Failed to init rgbmatrix: {e}")
-        
-        # Fallback: other matrix initialization methods can be added here
-        self.matrix = None
+            logger.error(f"Failed to initialize LED matrix: {e}")
+            logger.error(f"  Error type: {type(e).__name__}")
+            logger.debug(f"  Full error: {e}", exc_info=True)
+            self.matrix = None
+            self.matrix_lib = None
     
     def render_frame(self, direction, trains):
         """
@@ -105,9 +124,9 @@ class DisplayManager:
                 self.save_test_image(img, direction)
             else:
                 self.display_image(img)
-            
+                
         except Exception as e:
-            logger.error(f"Error rendering frame: {e}")
+            logger.error(f"Error rendering frame: {e}", exc_info=True)
     
     def draw_header(self, draw, direction):
         """
@@ -127,7 +146,7 @@ class DisplayManager:
             # Format direction text
             direction_text = direction.upper()
             
-            # Draw on black background
+            # Draw on black background with border
             draw.rectangle(
                 [(0, 0), (self.DISPLAY_WIDTH - 1, self.HEADER_HEIGHT - 1)],
                 outline=self.COLORS['dark_gray'],
@@ -149,8 +168,7 @@ class DisplayManager:
         """
         Draw a single train row with three columns
         
-        Layout:
-        [Train # in red circle] [Destination] [Time]
+        Layout: [Train # in red circle] [Destination] [Time]
         
         Args:
             draw: PIL ImageDraw object
@@ -159,7 +177,7 @@ class DisplayManager:
             row_idx: Row index (0 or 1)
         """
         try:
-            # Try to load font
+            # Try to load fonts
             try:
                 font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 7)
                 font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 9)
@@ -276,14 +294,25 @@ class DisplayManager:
         Display image on LED matrix
         
         Args:
-            img: PIL Image object
+            img: PIL Image object (RGB mode, 64x32)
         """
         try:
-            if self.matrix:
-                # Convert PIL image to matrix format and display
-                self.matrix.SetImage(img)
+            if not self.matrix:
+                logger.error("Matrix not initialized, cannot display image")
+                return
+            
+            # Ensure image is in RGB mode
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # The rgbmatrix library expects an image object
+            # Use SetImage to display
+            self.matrix.SetImage(img)
+            
+            logger.debug("Image displayed on matrix")
+            
         except Exception as e:
-            logger.error(f"Error displaying image: {e}")
+            logger.error(f"Error displaying image on matrix: {e}", exc_info=True)
     
     def save_test_image(self, img, direction):
         """
@@ -297,6 +326,7 @@ class DisplayManager:
             filename = f"/tmp/mta_display_{direction}_{int(time.time())}.png"
             img.save(filename)
             logger.debug(f"Saved test image: {filename}")
+            
         except Exception as e:
             logger.debug(f"Could not save test image: {e}")
     
@@ -304,9 +334,10 @@ class DisplayManager:
         """Clean up display resources"""
         try:
             if self.matrix:
-                # Clear display
+                # Clear display by showing black image
                 img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
                 self.matrix.SetImage(img)
                 logger.info("Display cleared")
+                
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
