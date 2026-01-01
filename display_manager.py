@@ -376,7 +376,7 @@ class DisplayManager:
             # Circle parameters
             circle_x = 5
             circle_y = y_pos + self.ROW_HEIGHT // 2 - 0
-            circle_radius = 4
+            circle_radius = 4.5
             
             # Draw red circle outline only
             draw.ellipse(
