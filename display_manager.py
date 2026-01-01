@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-LED Display Manager - FINAL VERSION WITH FIXES
+LED Display Manager - SINGLE-LAYER CRISP TEXT VERSION
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
 FIXES:
-- Single-layer text (no double lines)
-- Proper text alignment (centered, not lower)
-- Train badge centered in red circle
-- Destination with marquee scrolling
+- Single-layer crisp text (no anti-aliasing)
+- Full "NORTHBOUND" / "SOUTHBOUND" text, positioned 2 pixels higher
+- Train "R" moved 2 pixels higher, 1 pixel right
 """
 
 import logging
@@ -50,10 +49,6 @@ class DisplayManager:
         # For testing/development without hardware
         self.test_mode = self.matrix is None
         
-        # Animation state for marquee
-        self.marquee_offset = 0
-        self.marquee_time = 0
-        
         if self.test_mode:
             logger.warning("Running in test mode - no LED matrix detected")
         else:
@@ -76,9 +71,9 @@ class DisplayManager:
             options.cols = self.DISPLAY_WIDTH
             options.chain_length = 1
             options.parallel = 1
-            options.hardware_mapping = "regular"  # Use "regular" not "adafruit-hat"
+            options.hardware_mapping = "regular"
             options.gpio_slowdown = 2
-            options.brightness = 80  # 0-100
+            options.brightness = 80
             
             # Create matrix
             self.matrix = RGBMatrix(options=options)
@@ -125,24 +120,23 @@ class DisplayManager:
     
     def draw_header(self, draw, direction):
         """
-        Draw header row showing direction with proper alignment
+        Draw header row showing full NORTHBOUND/SOUTHBOUND text
+        Positioned 2 pixels higher than before
         
         Args:
             draw: PIL ImageDraw object
             direction: 'northbound' or 'southbound'
         """
         try:
-            # Use smallest font for better clarity - SINGLE LAYER ONLY
+            # Use smallest, clearest font
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 6)
+                # Try different fonts for clarity
+                font = ImageFont.load_default()
             except:
                 font = ImageFont.load_default()
             
-            # Format direction text - abbreviated to fit better
-            if direction == 'northbound':
-                direction_text = "N-BOUND"
-            else:
-                direction_text = "S-BOUND"
+            # Full direction text
+            direction_text = "NORTHBOUND" if direction == 'northbound' else "SOUTHBOUND"
             
             # Draw border rectangle
             draw.rectangle(
@@ -151,16 +145,17 @@ class DisplayManager:
                 fill=self.COLORS['black']
             )
             
-            # Get text bounding box for proper centering
+            # Get text dimensions
             bbox = draw.textbbox((0, 0), direction_text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Center text both horizontally and vertically in header
-            x_pos = (self.DISPLAY_WIDTH - text_width) // 2
-            y_pos = (self.HEADER_HEIGHT - text_height) // 2
+            # Center horizontally, position 2 pixels higher (use y=0)
+            x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
+            y_pos = 0  # 2 pixels higher than default centered position
             
-            # Draw text - SINGLE LAYER ONLY
+            # Draw text with NO anti-aliasing
+            # Use stroke=0 to prevent anti-aliasing
             draw.text(
                 (x_pos, y_pos),
                 direction_text,
@@ -184,10 +179,10 @@ class DisplayManager:
             row_idx: Row index (0 or 1)
         """
         try:
-            # Use small font - SINGLE LAYER ONLY
+            # Use default font for clarity
             try:
-                font_dest = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 6)
-                font_time = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 7)
+                font_dest = ImageFont.load_default()
+                font_time = ImageFont.load_default()
             except:
                 font_dest = ImageFont.load_default()
                 font_time = ImageFont.load_default()
@@ -195,7 +190,7 @@ class DisplayManager:
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
             
-            # Column 2: Destination with marquee if needed
+            # Column 2: Destination
             col2_x = self.COL_WIDTHS[0]
             self.draw_destination(draw, train.destination, col2_x, y_pos, font_dest)
             
@@ -223,26 +218,28 @@ class DisplayManager:
     
     def draw_train_badge(self, draw, route_id, y_pos):
         """
-        Draw train number in yellow text with red circle - PROPERLY CENTERED
+        Draw train number in yellow text with red circle
+        Positioned 2 pixels higher and 1 pixel to the right
         
         Args:
             draw: PIL ImageDraw object
             route_id: Train route ID (e.g., 'R')
-            y_pos: Y position
+            y_pos: Y position of row
         """
         try:
-            # Use small font
+            # Use default font for clarity
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 7)
+                font = ImageFont.load_default()
             except:
                 font = ImageFont.load_default()
             
             # Circle parameters
             circle_x = 6
-            circle_y = y_pos + self.ROW_HEIGHT // 2  # Center vertically in row
+            # 2 pixels higher: subtract 2 from center calculation
+            circle_y = y_pos + self.ROW_HEIGHT // 2 - 2
             circle_radius = 4
             
-            # Draw red circle outline only (no fill to reduce double lines)
+            # Draw red circle outline only
             draw.ellipse(
                 [(circle_x - circle_radius, circle_y - circle_radius),
                  (circle_x + circle_radius, circle_y + circle_radius)],
@@ -250,16 +247,16 @@ class DisplayManager:
                 fill=self.COLORS['black']
             )
             
-            # Get text bounding box for proper centering
+            # Get text dimensions
             bbox = draw.textbbox((0, 0), route_id, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Center text in circle
-            text_x = circle_x - text_width // 2
+            # Center in circle, with +1 pixel right and -2 pixels up (already applied to circle_y)
+            text_x = circle_x - text_width // 2 + 1  # 1 pixel right
             text_y = circle_y - text_height // 2
             
-            # Draw text - SINGLE LAYER
+            # Draw text
             draw.text(
                 (text_x, text_y),
                 route_id,
@@ -272,7 +269,7 @@ class DisplayManager:
     
     def draw_destination(self, draw, destination, x_pos, y_pos, font):
         """
-        Draw destination text with marquee scrolling if too long
+        Draw destination text with truncation if too long
         
         Args:
             draw: PIL ImageDraw object
@@ -287,7 +284,7 @@ class DisplayManager:
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Max width for destination column (in pixels)
+            # Max width for destination column
             max_width = self.DEST_MAX_WIDTH
             
             # Vertically center text in row
@@ -302,36 +299,20 @@ class DisplayManager:
                     fill=self.COLORS['white']
                 )
             else:
-                # Text is too long - use marquee effect
-                # Update marquee position over time
-                current_time = int(time.time() * 10)  # 10 updates per second
-                marquee_pos = (current_time // 20) % (text_width + max_width)
-                
-                # Draw clipped version with scrolling
-                # Create a temporary image for the text
-                temp_img = Image.new('RGB', (text_width + max_width, text_height), self.COLORS['black'])
-                temp_draw = ImageDraw.Draw(temp_img)
-                
-                # Draw full text
-                temp_draw.text((0, 0), destination, font=font, fill=self.COLORS['white'])
-                
-                # Copy the scrolling portion to main image
-                for i in range(min(max_width, text_width)):
-                    if marquee_pos + i < text_width + max_width:
-                        # This is a simplified marquee - just show truncated version
-                        pass
-                
-                # Simplified: just show first part that fits, truncated
+                # Text is too long - truncate
                 truncated = destination
-                while len(truncated) > 0 and draw.textbbox((0, 0), truncated, font=font)[2] > max_width:
+                while len(truncated) > 0:
+                    bbox = draw.textbbox((0, 0), truncated + ".", font=font)
+                    if bbox[2] - bbox[0] <= max_width - 2:
+                        break
                     truncated = truncated[:-1]
                 
                 if not truncated:
-                    truncated = destination[0]
+                    truncated = destination[0] if destination else "?"
                 
                 draw.text(
                     (x_pos + 2, text_y),
-                    truncated + "...",
+                    truncated + ".",
                     font=font,
                     fill=self.COLORS['white']
                 )
@@ -352,8 +333,6 @@ class DisplayManager:
         """
         Display PIL Image on LED matrix using SetPixel() API
         
-        This is the CORRECT method based on basic_test.py
-        
         Args:
             pil_image: PIL Image object (RGB mode, 64x32)
         """
@@ -370,7 +349,6 @@ class DisplayManager:
             pixels = pil_image.load()
             
             # Set each pixel on the matrix using SetPixel()
-            # This is the API that works (proven by basic_test.py)
             for x in range(self.DISPLAY_WIDTH):
                 for y in range(self.DISPLAY_HEIGHT):
                     r, g, b = pixels[x, y]
