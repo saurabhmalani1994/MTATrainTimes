@@ -125,15 +125,20 @@ class DisplayManager:
                     font_file = path
                     logger.info(f"Using fallback font: {path}")
                     break
+
+        dejavu_fontfile = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        nunito_fontfile = "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf"
+        noto_fontfile = "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"
+        liberation_fontfile = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
         
         # Load fonts at different sizes
         if font_file:
             try:
-                fonts['header'] = ImageFont.truetype(font_file, self.FONT_CONFIG['header_size'])
-                fonts['badge'] = ImageFont.truetype(font_file, self.FONT_CONFIG['badge_size'])
-                fonts['dest'] = ImageFont.truetype(font_file, self.FONT_CONFIG['dest_size'])
-                fonts['time'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_size'])
-                fonts['time_now'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_now_size'])
+                fonts['header'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['header_size'])
+                fonts['badge'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['badge_size'])
+                fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
+                fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
