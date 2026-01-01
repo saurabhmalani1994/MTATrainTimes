@@ -165,7 +165,7 @@ class DisplayManager:
             
             # Center horizontally, position 2 pixels higher (use y=0)
             x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
-            y_pos = 2  # 2 pixels higher than default centered position
+            y_pos = -2  # 2 pixels higher than default centered position
             
             # Draw text - single-layer crisp rendering
             draw.text(
