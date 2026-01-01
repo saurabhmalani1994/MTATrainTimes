@@ -124,19 +124,21 @@ class MTAClient:
                         continue
                 # If route_ids is None, include all routes
                 
-                # Get the direction
+                # Get the direction FIRST (determines stop suffix)
                 direction = self._get_direction_from_trip(trip)
                 if direction not in ["northbound", "southbound"]:
+                    logger.debug(f"Trip {trip.trip_id}: Could not determine direction, skipping")
                     continue
                 
                 # Get the destination
                 destination = self._get_destination(trip)
                 
-                # Determine which suffix to look for (N for northbound, S for southbound)
+                # Determine which suffix to look for based on direction
+                # R35N = northbound, R35S = southbound
                 stop_suffix = "N" if direction == "northbound" else "S"
                 target_stop_id = f"{stop_id}{stop_suffix}"
                 
-                logger.debug(f"Trip {trip.trip_id}: route={trip.route_id}, direction={direction}, destination={destination}, looking for stop_id={target_stop_id}")
+                logger.debug(f"Trip {trip.trip_id}: route={trip.route_id}, direction={direction}, destination='{destination}', looking for stop={target_stop_id}")
                 
                 # Find this stop in the trip's stops
                 found = False
@@ -158,13 +160,13 @@ class MTAClient:
                                 direction=direction
                             )
                             trains[direction].append(train)
-                            logger.debug(f"  Added train: {train}")
+                            logger.debug(f"  ✓ Added {direction} train: {train.route_id} to {train.destination}")
                         
                         found = True
                         break
                 
                 if not found:
-                    logger.debug(f"  Stop {target_stop_id} not found in trip")
+                    logger.debug(f"  Stop {target_stop_id} not found in this trip's stops")
             
             # Sort by arrival time and limit to top 5
             for direction in ["northbound", "southbound"]:
@@ -172,6 +174,10 @@ class MTAClient:
                 trains[direction] = trains[direction][:5]  # Keep top 5
             
             logger.info(f"Parsed trains - Northbound: {len(trains['northbound'])}, Southbound: {len(trains['southbound'])}")
+            
+            if len(trains['northbound']) == 0 and len(trains['southbound']) == 0:
+                logger.warning("No trains found! Check stop_id and route_ids settings.")
+            
             return trains
             
         except Exception as e:
@@ -181,7 +187,8 @@ class MTAClient:
     def _get_direction_from_trip(self, trip):
         """Determine direction from trip descriptor
         
-        Uses direction_id from GTFS when available, falls back to headsign parsing
+        Uses stop_id suffix (N/S) as PRIMARY indicator
+        Falls back to direction_id, then headsign, then trip_id
         
         Args:
             trip: TripDescriptor from GTFS-RT
@@ -189,32 +196,46 @@ class MTAClient:
         Returns:
             'northbound' or 'southbound'
         """
-        # Try direction_id first (more reliable)
+        # Method 1: Try direction_id first
         if hasattr(trip, "direction_id") and trip.direction_id is not None:
-            if trip.direction_id == 0:
+            direction_id = trip.direction_id
+            # For most NYC routes: 0=northbound, 1=southbound
+            if direction_id == 0:
                 return "northbound"
-            elif trip.direction_id == 1:
+            elif direction_id == 1:
                 return "southbound"
+            logger.debug(f"Trip {trip.trip_id}: direction_id={direction_id} -> not 0 or 1, trying fallback")
         
-        # Fallback: parse headsign for keywords
+        # Method 2: Parse headsign for keywords
         if hasattr(trip, "trip_headsign") and trip.trip_headsign:
             headsign = trip.trip_headsign.lower()
+            logger.debug(f"Trip {trip.trip_id}: headsign='{headsign}'")
             
-            if any(word in headsign for word in ["whitehall", "downtown", "forest", "cortlandt"]):
+            # Northbound keywords
+            if any(word in headsign for word in ["whitehall", "downtown", "forest", "cortlandt", "lexington"]):
+                logger.debug(f"  -> Found northbound keyword in headsign")
                 return "northbound"
-            elif any(word in headsign for word in ["bay ridge", "brooklyn", "95 st"]):
+            
+            # Southbound keywords  
+            if any(word in headsign for word in ["bay ridge", "brooklyn", "95 st", "coney", "astoria", "flushing"]):
+                logger.debug(f"  -> Found southbound keyword in headsign")
                 return "southbound"
         
-        # Final fallback: look at trip_id pattern
+        # Method 3: Look at trip_id pattern
         if hasattr(trip, "trip_id"):
             trip_id = trip.trip_id.upper()
+            logger.debug(f"Trip {trip.trip_id}: Checking trip_id pattern")
+            
             if trip_id.endswith("N") or "N0" in trip_id:
+                logger.debug(f"  -> Found N pattern in trip_id")
                 return "northbound"
             elif trip_id.endswith("S") or "S0" in trip_id:
+                logger.debug(f"  -> Found S pattern in trip_id")
                 return "southbound"
         
-        logger.warning(f"Could not determine direction for trip {trip.trip_id}")
-        return "northbound"  # Default fallback
+        # Default fallback
+        logger.warning(f"Could not determine direction for trip {trip.trip_id}, defaulting to northbound")
+        return "northbound"
     
     def _get_destination(self, trip):
         """Extract destination from trip
@@ -226,8 +247,11 @@ class MTAClient:
             Destination string (e.g., 'Whitehall', 'Bay Ridge')
         """
         if hasattr(trip, "trip_headsign") and trip.trip_headsign:
-            return trip.trip_headsign[:15]  # Limit to 15 chars for display
+            destination = trip.trip_headsign
+            logger.debug(f"Trip {trip.trip_id}: destination='{destination}'")
+            return destination[:20]  # Limit to 20 chars for display
         
+        logger.warning(f"Trip {trip.trip_id}: No headsign found!")
         return "Unknown"
     
     @staticmethod
