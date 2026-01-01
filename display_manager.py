@@ -411,8 +411,12 @@ class DisplayManager:
                 )
                 
                 # Paste the clipped region back to the main image
-                # This is the key: we paste the temp_img which contains only the visible portion
-                img.paste(temp_img, (x_pos + 2, y_pos))
+                # Use proper 4-tuple bounding box: (x1, y1, x2, y2)
+                col_left = x_pos + 2
+                col_right = x_pos + 2 + max_width
+                col_top = y_pos
+                col_bottom = y_pos + self.ROW_HEIGHT
+                img.paste(temp_img, (col_left, col_top, col_right, col_bottom))
                 
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
