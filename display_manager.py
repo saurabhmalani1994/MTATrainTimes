@@ -401,19 +401,18 @@ class DisplayManager:
                     fill=self.COLORS['white']
                 )
                 
-                # Overdraw left side (badge column) with black to hide overflow
-                img = draw.im
-                img_width, img_height = img.size
-                
-                # Create a black rectangle for left clipping area
+                # Only clip the text area, not the badge or header
+                # Overdraw left side (hide overflow into badge column)
+                # Only clip the text height area, not the entire row
                 draw.rectangle(
-                    [(0, y_pos), (x_pos + 2 - 1, y_pos + self.ROW_HEIGHT - 1)],
+                    [(0, text_y), (x_pos + 2 - 1, text_y + text_height - 1)],
                     fill=self.COLORS['black']
                 )
                 
-                # Create a black rectangle for right clipping area
+                # Overdraw right side (hide overflow into time column)
+                # Only clip the text height area, not the entire row
                 draw.rectangle(
-                    [(x_pos + 2 + max_width, y_pos), (img_width - 1, y_pos + self.ROW_HEIGHT - 1)],
+                    [(x_pos + 2 + max_width, text_y), (self.DISPLAY_WIDTH - 1, text_y + text_height - 1)],
                     fill=self.COLORS['black']
                 )
                 
