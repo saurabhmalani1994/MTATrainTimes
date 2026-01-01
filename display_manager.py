@@ -49,7 +49,7 @@ class DisplayManager:
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
         'header_size': 9,      # Header font size
-        'badge_size': 8,       # Train badge font size
+        'badge_size': 9,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 9,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
@@ -409,7 +409,7 @@ class DisplayManager:
             
             # Center in circle, with +1 pixel right and -2 pixels up
             text_x = circle_x - text_width // 2 + 0  # 1 pixel right
-            text_y = circle_y - text_height // 2 - 3  # 2 pixels up
+            text_y = circle_y - text_height // 2 - 2  # 2 pixels up
             
             # Draw text
             draw.text(
