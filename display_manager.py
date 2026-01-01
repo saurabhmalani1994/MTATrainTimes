@@ -95,8 +95,8 @@ class DisplayManager:
         # Try to find OpenSans font file
         font_paths = [
             # "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
-            # "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+            # "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
             # "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             # "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
