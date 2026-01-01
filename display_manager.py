@@ -122,7 +122,7 @@ class DisplayManager:
             
             # Draw train rows
             for idx, train in enumerate(trains[:2]):
-                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT)
+                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 1
                 self.draw_train_row(draw, train, row_y, idx)
             
             # Display or save
@@ -193,7 +193,7 @@ class DisplayManager:
         """
         try:
             # Use crisp single-layer font
-            font = ImageFont.load_default(size=8)
+            font = ImageFont.load_default(size=9)
             
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
@@ -243,7 +243,7 @@ class DisplayManager:
             circle_x = 5
             # 2 pixels higher: subtract 2 from center calculation
             circle_y = y_pos + self.ROW_HEIGHT // 2 - 0
-            circle_radius = 4
+            circle_radius = 5
             
             # Draw red circle outline only
             draw.ellipse(
