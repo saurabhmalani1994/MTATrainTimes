@@ -27,7 +27,11 @@ class MTATrainDisplay:
     def __init__(self):
         """Initialize the display application"""
         self.config = Config
-        self.mta_client = MTAClient(self.config.MTA_API_KEY)
+        # Initialize MTA client with trips.txt file for static data
+        self.mta_client = MTAClient(
+            api_key=self.config.MTA_API_KEY,
+            trips_file="trips.txt"  # Use static trips.txt for destination/direction
+        )
         self.display_manager = DisplayManager()
         
         self.running = False
@@ -43,7 +47,7 @@ class MTATrainDisplay:
     def fetch_train_data(self):
         """Fetch train data from MTA API
         
-        Supports multiple route IDs - will fetch trains for all configured routes
+        Uses real-time feed from MTA + static trips.txt for destinations/directions
         """
         try:
             feed = self.mta_client.get_feed(self.config.FEED_PATH)
@@ -51,8 +55,7 @@ class MTATrainDisplay:
                 logger.warning("Failed to fetch feed data")
                 return
             
-            # Parse feed with support for multiple routes
-            # Pass ROUTE_IDS (can be list like ["R", "N", "D"] or None for all)
+            # Parse feed with trips.txt lookup for destination and direction
             self.train_data = self.mta_client.parse_feed(
                 feed, 
                 self.config.STOP_ID,
