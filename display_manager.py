@@ -135,10 +135,10 @@ class DisplayManager:
         if font_file:
             try:
                 fonts['header'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['header_size'])
-                fonts['badge'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['badge_size'])
+                fonts['badge'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['badge_size'])
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
-                fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
-                fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
+                fonts['time'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
