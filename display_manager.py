@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-LED Display Manager - FINAL CORRECTED VERSION
-Handles rendering to 32x64 RGB LED matrix
-FIXED: Proper PIL Image to numpy array conversion for rgbmatrix library
+LED Display Manager - FIXED TO USE CORRECT rgbmatrix API
+Handles rendering to 32x64 RGB LED matrix using SetPixel() method
+Based on basic_test.py which successfully displays content
 """
 
 import logging
 import time
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
@@ -41,7 +40,6 @@ class DisplayManager:
     def __init__(self):
         """Initialize display manager"""
         self.matrix = None
-        self.matrix_lib = None
         self.try_init_matrix()
         
         # For testing/development without hardware
@@ -51,53 +49,40 @@ class DisplayManager:
             logger.warning("Running in test mode - no LED matrix detected")
         else:
             logger.info("✓ LED matrix initialized successfully")
+            logger.info(f"  Resolution: {self.matrix.width}x{self.matrix.height}")
     
     def try_init_matrix(self):
         """
         Try to initialize the LED matrix hardware
-        Supports rpi-rgb-led-matrix library with proper error handling
+        Uses same API as basic_test.py which is proven to work
         """
         try:
-            # Import the library first
             from rgbmatrix import RGBMatrix, RGBMatrixOptions
             
             logger.debug("rgbmatrix library found, initializing...")
             
-            # Create options
+            # Create options (same as basic_test.py)
             options = RGBMatrixOptions()
             options.rows = self.DISPLAY_HEIGHT
             options.cols = self.DISPLAY_WIDTH
             options.chain_length = 1
             options.parallel = 1
-            options.hardware_mapping = 'adafruit-hat'
+            options.hardware_mapping = "regular"  # Use "regular" not "adafruit-hat"
             options.gpio_slowdown = 2
-            options.brightness = 100
-            options.pwm_bits = 11
+            options.brightness = 80  # 0-100
             
-            # Try to create matrix
+            # Create matrix
             self.matrix = RGBMatrix(options=options)
-            self.matrix_lib = 'rgbmatrix'
-            
-            logger.info("✓ LED matrix initialized successfully")
-            logger.info(f"  Resolution: {self.DISPLAY_WIDTH}x{self.DISPLAY_HEIGHT}")
+            logger.info("✓ LED matrix initialized with correct API")
             
         except ImportError as e:
             logger.debug(f"rgbmatrix library not available: {e}")
             self.matrix = None
-            self.matrix_lib = None
-            
-        except PermissionError as e:
-            logger.error(f"Permission denied accessing GPIO: {e}")
-            logger.error("  Hint: Run with sudo or set proper permissions")
-            self.matrix = None
-            self.matrix_lib = None
             
         except Exception as e:
             logger.error(f"Failed to initialize LED matrix: {e}")
-            logger.error(f"  Error type: {type(e).__name__}")
-            logger.debug(f"  Full error: {e}", exc_info=True)
+            logger.debug(f"Full error: {e}", exc_info=True)
             self.matrix = None
-            self.matrix_lib = None
     
     def render_frame(self, direction, trains):
         """
@@ -189,7 +174,7 @@ class DisplayManager:
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
             
-            # Column 2: Destination with marquee if needed
+            # Column 2: Destination
             col2_x = self.COL_WIDTHS[0]
             col2_width = self.COL_WIDTHS[1]
             self.draw_destination(draw, train.destination, col2_x, y_pos, col2_width, font_small)
@@ -255,7 +240,7 @@ class DisplayManager:
     
     def draw_destination(self, draw, destination, x_pos, y_pos, max_width, font):
         """
-        Draw destination text, with scrolling if needed
+        Draw destination text
         
         Args:
             draw: PIL ImageDraw object
@@ -266,8 +251,8 @@ class DisplayManager:
             font: Font to use
         """
         try:
-            # Truncate or add marquee
-            display_text = destination[:18]  # Limit to reasonable length
+            # Truncate to reasonable length
+            display_text = destination[:18]
             
             draw.text(
                 (x_pos + 2, y_pos + 2),
@@ -275,8 +260,6 @@ class DisplayManager:
                 font=font,
                 fill=self.COLORS['white']
             )
-            
-            # TODO: Implement marquee scrolling for longer names
             
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
@@ -290,66 +273,41 @@ class DisplayManager:
         else:
             return f"{minutes} Min"
     
-    def pil_image_to_rgb_array(self, pil_image):
+    def display_image(self, pil_image):
         """
-        Convert PIL Image to numpy array format required by rgbmatrix
+        Display PIL Image on LED matrix using SetPixel() API
+        
+        This is the CORRECT method based on basic_test.py
         
         Args:
-            pil_image: PIL Image object (must be RGB mode)
-            
-        Returns:
-            numpy array or PIL Image depending on library requirements
+            pil_image: PIL Image object (RGB mode, 64x32)
         """
         try:
+            if not self.matrix:
+                logger.error("Matrix not initialized")
+                return
+            
             # Ensure image is in RGB mode
             if pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            # The rgbmatrix library's SetImage() actually accepts PIL Images directly
-            # But we convert to numpy array as backup in case of version differences
-            img_array = np.array(pil_image, dtype=np.uint8)
+            # Get image data
+            pixels = pil_image.load()
             
-            return img_array
+            # Set each pixel on the matrix using SetPixel()
+            # This is the API that works (proven by basic_test.py)
+            for x in range(self.DISPLAY_WIDTH):
+                for y in range(self.DISPLAY_HEIGHT):
+                    r, g, b = pixels[x, y]
+                    self.matrix.SetPixel(x, y, r, g, b)
             
-        except Exception as e:
-            logger.error(f"Error converting image: {e}")
-            return None
-    
-    def display_image(self, img):
-        """
-        Display image on LED matrix
-        
-        Args:
-            img: PIL Image object (RGB mode, 64x32)
-        """
-        try:
-            if not self.matrix:
-                logger.error("Matrix not initialized, cannot display image")
-                return
-            
-            # Ensure image is in RGB mode
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            
-            # CRITICAL FIX: SetImage() works with PIL Image objects directly
-            # Convert to numpy array for compatibility
-            img_array = self.pil_image_to_rgb_array(img)
-            
-            if img_array is None:
-                logger.error("Failed to convert image to array")
-                return
-            
-            # Use SetImage with PIL Image directly (rgbmatrix accepts this)
-            self.matrix.SetImage(img)
-            
-            logger.debug("Image displayed on matrix successfully")
+            logger.debug("Frame displayed on matrix using SetPixel()")
             
         except AttributeError as e:
-            logger.error(f"Matrix method error (SetImage not found): {e}")
-            logger.error("  This may indicate a rgbmatrix library version issue")
+            logger.error(f"Matrix method error: {e}")
             
         except Exception as e:
-            logger.error(f"Error displaying image on matrix: {e}", exc_info=True)
+            logger.error(f"Error displaying image: {e}", exc_info=True)
     
     def save_test_image(self, img, direction):
         """
@@ -371,9 +329,8 @@ class DisplayManager:
         """Clean up display resources"""
         try:
             if self.matrix:
-                # Clear display by showing black image
-                img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
-                self.matrix.SetImage(img)
+                # Clear display
+                self.matrix.Clear()
                 logger.info("Display cleared on shutdown")
                 
         except Exception as e:
