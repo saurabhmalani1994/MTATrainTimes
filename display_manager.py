@@ -360,7 +360,7 @@ class DisplayManager:
         """
         Draw destination text with sliding animation if too long
         Text slides back and forth to show full length
-        Properly clipped to stay within destination column bounds
+        Clipped to stay within destination column bounds
         
         Args:
             draw: PIL ImageDraw object
@@ -393,30 +393,29 @@ class DisplayManager:
                 # Text is too long - animate sliding with clipping
                 offset = self._calculate_slide_offset(destination, max_width)
                 
-                # Get the main image for manipulation
-                img = draw.im
-                
-                # Create a temporary image for just the destination column area
-                # This ensures text is clipped and doesn't bleed into adjacent columns
-                temp_img = Image.new('RGB', (max_width, self.ROW_HEIGHT), self.COLORS['black'])
-                temp_draw = ImageDraw.Draw(temp_img)
-                
-                # Draw text on temporary image with offset applied
-                # The text position accounts for vertical centering
-                temp_draw.text(
-                    (2 - offset, (self.ROW_HEIGHT - text_height) // 2),
+                # Draw text directly on main image with offset
+                draw.text(
+                    (x_pos + 2 - offset, text_y),
                     destination,
                     font=font,
                     fill=self.COLORS['white']
                 )
                 
-                # Paste the clipped region back to the main image
-                # Use proper 4-tuple bounding box: (x1, y1, x2, y2)
-                col_left = x_pos + 2
-                col_right = x_pos + 2 + max_width
-                col_top = y_pos
-                col_bottom = y_pos + self.ROW_HEIGHT
-                img.paste(temp_img, (col_left, col_top, col_right, col_bottom))
+                # Overdraw left side (badge column) with black to hide overflow
+                img = draw.im
+                img_width, img_height = img.size
+                
+                # Create a black rectangle for left clipping area
+                draw.rectangle(
+                    [(0, y_pos), (x_pos + 2 - 1, y_pos + self.ROW_HEIGHT - 1)],
+                    fill=self.COLORS['black']
+                )
+                
+                # Create a black rectangle for right clipping area
+                draw.rectangle(
+                    [(x_pos + 2 + max_width, y_pos), (img_width - 1, y_pos + self.ROW_HEIGHT - 1)],
+                    fill=self.COLORS['black']
+                )
                 
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
