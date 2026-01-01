@@ -2,7 +2,7 @@
 """
 MTA GTFS-RT API Client
 Fetches and parses real-time train data from MTA
-Extracts destination and direction directly from the real-time feed
+Uses route + direction mapping to provide destinations
 """
 
 import logging
@@ -37,11 +37,89 @@ class Train:
 class MTAClient:
     """Client for MTA GTFS-RT API"""
     
-    # Stop suffix patterns for different routes
-    STOP_PATTERNS = {
-        'R': {'N': ['R35N', 'R35', '135N', '135'], 'S': ['R35S', '235S', '235']},
-        'N': {'N': ['N35N', 'N35', '135N', '135'], 'S': ['N35S', 'N34S', '234']},
-        'D': {'N': ['D35N', 'D35', '335N', '335'], 'S': ['D35S', 'D34S', '234']},
+    # Destination mapping by route and direction
+    # Based on typical NYC MTA route patterns
+    DESTINATIONS = {
+        'R': {
+            'northbound': 'Whitehall Terminal',
+            'southbound': 'Bay Ridge-95 St'
+        },
+        'N': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'Q': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'W': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Whitehall Terminal'
+        },
+        'D': {
+            'northbound': 'Norwood-205 St',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'B': {
+            'northbound': 'Bedford Park Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'M': {
+            'northbound': 'Forest Hills-71 Ave',
+            'southbound': 'Jamaica Center'
+        },
+        'F': {
+            'northbound': 'Jamaica-Van Wyck',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        '1': {
+            'northbound': 'Van Cortlandt Park-242 St',
+            'southbound': 'South Ferry'
+        },
+        '2': {
+            'northbound': 'Wakefield-241 St',
+            'southbound': 'Flatbush Ave-Brooklyn College'
+        },
+        '3': {
+            'northbound': 'Harlem-148 St',
+            'southbound': 'New Lots Ave'
+        },
+        '4': {
+            'northbound': 'Woodlawn',
+            'southbound': 'New Lots Ave'
+        },
+        '5': {
+            'northbound': 'Eastchester-Dyre Ave',
+            'southbound': 'Flatbush Ave-Brooklyn College'
+        },
+        'A': {
+            'northbound': 'Inwood-207 St',
+            'southbound': 'Far Rockaway-Mott Ave'
+        },
+        'C': {
+            'northbound': 'West 168 St',
+            'southbound': 'Euclid Ave'
+        },
+        'E': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'World Trade Center'
+        },
+        'G': {
+            'northbound': 'Court Square',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'J': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'Broad St'
+        },
+        'Z': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'Broad St'
+        },
+        'L': {
+            'northbound': '8 Ave',
+            'southbound': 'Canarsie-Rockaway'
+        },
     }
     
     def __init__(self, api_key=None):
@@ -55,9 +133,6 @@ class MTAClient:
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
-        
-        # Cache for discovered stops per route
-        self.discovered_stops = {}
     
     def get_feed(self, feed_path):
         """Fetch GTFS-RT feed from MTA
@@ -91,7 +166,7 @@ class MTAClient:
     def parse_feed(self, feed, stop_id, route_ids=None):
         """Parse GTFS-RT feed to extract train arrivals
         
-        Uses ONLY data from the real-time feed (no external files needed)
+        Uses route + direction mapping for destinations
         
         Args:
             feed: FeedMessage from MTA
@@ -106,7 +181,7 @@ class MTAClient:
         try:
             logger.debug(f"Parsing feed for stop_id={stop_id}, route_ids={route_ids}")
             
-            # First pass: collect all stops to discover the format
+            # First pass: collect candidate stops
             all_stops = defaultdict(int)
             for entity in feed.entity:
                 if not entity.HasField("trip_update"):
@@ -114,13 +189,13 @@ class MTAClient:
                 
                 for stop_time in entity.trip_update.stop_time_update:
                     stop = stop_time.stop_id
-                    # Track stops that might match our target
                     if stop_id.upper() in stop.upper() or stop.startswith(stop_id):
                         all_stops[stop] += 1
             
-            logger.debug(f"Found {len(all_stops)} candidate stops matching '{stop_id}':")
-            for stop in sorted(all_stops.keys()):
-                logger.debug(f"  {stop}: {all_stops[stop]} trips")
+            if all_stops:
+                logger.debug(f"Found {len(all_stops)} candidate stops matching '{stop_id}':")
+                for stop in sorted(all_stops.keys()):
+                    logger.debug(f"  {stop}: {all_stops[stop]} trips")
             
             # Second pass: extract trains
             processed = 0
@@ -132,7 +207,6 @@ class MTAClient:
                 
                 trip_update = entity.trip_update
                 trip = trip_update.trip
-                trip_id = trip.trip_id
                 route_id = trip.route_id
                 
                 processed += 1
@@ -142,15 +216,6 @@ class MTAClient:
                     if route_id not in route_ids:
                         continue
                 
-                # Extract destination from trip_headsign if available
-                destination = "Unknown"
-                if hasattr(trip, "trip_headsign") and trip.trip_headsign:
-                    destination = trip.trip_headsign
-                
-                # Try to determine direction from stop_id pattern
-                direction = None
-                target_stop = None
-                
                 # Check each stop in the trip
                 for stop_time in trip_update.stop_time_update:
                     stop_id_check = stop_time.stop_id
@@ -158,7 +223,6 @@ class MTAClient:
                     # Check if this stop matches our target
                     matches = False
                     
-                    # Check for exact/prefix match
                     if stop_id.upper() in stop_id_check.upper():
                         matches = True
                     elif stop_id_check.startswith(stop_id):
@@ -167,13 +231,10 @@ class MTAClient:
                         matches = True
                     
                     if matches:
-                        target_stop = stop_id_check
-                        
                         # Determine direction from stop_id suffix
                         stop_upper = stop_id_check.upper()
+                        direction = None
                         
-                        # Pattern: stops ending in N or odd numbers are typically northbound
-                        # Stops ending in S or even numbers are typically southbound
                         if stop_upper.endswith('N') or stop_upper.endswith('1'):
                             direction = "northbound"
                         elif stop_upper.endswith('S') or stop_upper.endswith('2'):
@@ -182,6 +243,11 @@ class MTAClient:
                             # Use direction_id as fallback
                             direction_id = trip.direction_id if hasattr(trip, 'direction_id') else 0
                             direction = "northbound" if direction_id == 0 else "southbound"
+                        
+                        # Get destination from mapping (or Unknown as fallback)
+                        destination = "Unknown"
+                        if route_id in self.DESTINATIONS:
+                            destination = self.DESTINATIONS[route_id].get(direction, "Unknown")
                         
                         # Get arrival time
                         arrival_time = None
@@ -199,7 +265,7 @@ class MTAClient:
                             )
                             trains[direction].append(train)
                             matched += 1
-                            logger.debug(f"✓ Added {direction} train: {route_id} to '{destination}' (stop: {target_stop})")
+                            logger.debug(f"✓ Added {direction} train: {route_id} to '{destination}' (stop: {stop_id_check})")
                         
                         break  # Found this trip's stop, move to next trip
             
@@ -217,7 +283,6 @@ class MTAClient:
                 logger.warning(f"  Stop ID: '{stop_id}'")
                 logger.warning(f"  Routes: {route_ids}")
                 logger.warning(f"  Processed {processed} total trips")
-                logger.warning(f"  Try using stop IDs shown above")
             
             return trains
             
