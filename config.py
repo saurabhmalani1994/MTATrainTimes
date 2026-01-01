@@ -24,7 +24,7 @@ class Config:
     
     # MULTIPLE ROUTES SUPPORT
     # Set which routes to display at this stop
-    ROUTE_IDS = []
+    ROUTE_IDS = ["R", "N", "D"]
     """
     List of route IDs to display. Can be:
     - ["R"] - Only R train
