@@ -56,7 +56,7 @@ class MTAClient:
             api_key: Optional MTA API key
         """
         self.api_key = api_key
-        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/2"
+        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/"
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
@@ -71,7 +71,7 @@ class MTAClient:
             Parsed FeedMessage or None on error
         """
         try:
-            url = f"{self.base_url}/fnyct%2f{feed_path}"
+            url = f"{self.base_url}%2fnyct/{feed_path}"
             logger.debug(f"Fetching from {url}")
             
             response = self.session.get(url, timeout=10)
