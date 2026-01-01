@@ -42,7 +42,7 @@ class DisplayManager:
     # Layout dimensions
     HEADER_HEIGHT = 5
     ROW_HEIGHT = 12
-    COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
+    COL_WIDTHS = [12, 30, 22]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
     DEST_COL_X = 12  # Starting X position of destination column
     
