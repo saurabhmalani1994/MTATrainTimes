@@ -36,8 +36,8 @@ class DisplayManager:
     }
     
     # Layout dimensions
-    HEADER_HEIGHT = 8
-    ROW_HEIGHT = 12
+    HEADER_HEIGHT = 7
+    ROW_HEIGHT = 13
     COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
     
@@ -146,17 +146,17 @@ class DisplayManager:
         """
         try:
             # Use crisp single-layer font (load_default)
-            font = self.font
+            font = ImageFont.load_default(size=9)
             
             # Full direction text
             direction_text = "NORTHBOUND" if direction == 'northbound' else "SOUTHBOUND"
             
             # Draw border rectangle
-            draw.rectangle(
-                [(0, 0), (self.DISPLAY_WIDTH - 1, self.HEADER_HEIGHT - 1)],
-                outline=self.COLORS['dark_gray'],
-                fill=self.COLORS['black']
-            )
+            # draw.rectangle(
+            #     [(0, 0), (self.DISPLAY_WIDTH - 1, self.HEADER_HEIGHT - 1)],
+            #     outline=self.COLORS['dark_gray'],
+            #     fill=self.COLORS['black']
+            # )
             
             # Get text dimensions
             bbox = draw.textbbox((0, 0), direction_text, font=font)
