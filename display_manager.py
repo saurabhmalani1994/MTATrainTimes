@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-LED Display Manager - SINGLE-LAYER CRISP TEXT VERSION
+LED Display Manager - SMALLER FONTS VERSION
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
-FIXES:
-- Single-layer crisp text (no anti-aliasing)
-- Full "NORTHBOUND" / "SOUTHBOUND" text, positioned 2 pixels higher
-- Train "R" moved 2 pixels higher, 1 pixel right
+CHANGES:
+- All fonts reduced by 2 sizes
+- Uses even smaller load_default() equivalent
 """
 
 import logging
@@ -122,17 +121,19 @@ class DisplayManager:
         """
         Draw header row showing full NORTHBOUND/SOUTHBOUND text
         Positioned 2 pixels higher than before
+        Using SMALLER fonts
         
         Args:
             draw: PIL ImageDraw object
             direction: 'northbound' or 'southbound'
         """
         try:
-            # Use smallest, clearest font
+            # Use smallest font available (2 sizes smaller)
             try:
-                # Try different fonts for clarity
-                font = ImageFont.load_default()
+                # Try to load a tiny font - 2 sizes smaller
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 4)
             except:
+                # Fallback to default (smallest available)
                 font = ImageFont.load_default()
             
             # Full direction text
@@ -155,7 +156,6 @@ class DisplayManager:
             y_pos = 0  # 2 pixels higher than default centered position
             
             # Draw text with NO anti-aliasing
-            # Use stroke=0 to prevent anti-aliasing
             draw.text(
                 (x_pos, y_pos),
                 direction_text,
@@ -171,6 +171,7 @@ class DisplayManager:
         Draw a single train row with three columns
         
         Layout: [Train # in red circle] [Destination] [Time]
+        Using SMALLER fonts
         
         Args:
             draw: PIL ImageDraw object
@@ -179,11 +180,13 @@ class DisplayManager:
             row_idx: Row index (0 or 1)
         """
         try:
-            # Use default font for clarity
+            # Use smallest fonts available (2 sizes smaller)
             try:
-                font_dest = ImageFont.load_default()
-                font_time = ImageFont.load_default()
+                # Try to load tiny fonts - 2 sizes smaller
+                font_dest = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 4)
+                font_time = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 5)
             except:
+                # Fallback to default (smallest available)
                 font_dest = ImageFont.load_default()
                 font_time = ImageFont.load_default()
             
@@ -220,6 +223,7 @@ class DisplayManager:
         """
         Draw train number in yellow text with red circle
         Positioned 2 pixels higher and 1 pixel to the right
+        Using SMALLER font
         
         Args:
             draw: PIL ImageDraw object
@@ -227,10 +231,12 @@ class DisplayManager:
             y_pos: Y position of row
         """
         try:
-            # Use default font for clarity
+            # Use smallest font available (2 sizes smaller)
             try:
-                font = ImageFont.load_default()
+                # Try to load tiny font - 2 sizes smaller
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 5)
             except:
+                # Fallback to default (smallest available)
                 font = ImageFont.load_default()
             
             # Circle parameters
@@ -270,6 +276,7 @@ class DisplayManager:
     def draw_destination(self, draw, destination, x_pos, y_pos, font):
         """
         Draw destination text with truncation if too long
+        Using SMALLER font
         
         Args:
             draw: PIL ImageDraw object
