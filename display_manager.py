@@ -51,7 +51,7 @@ class DisplayManager:
         'header_size': 9,      # Header font size
         'badge_size': 9,       # Train badge font size
         'dest_size': 9,        # Destination font size
-        'time_size': 9,        # Time font size
+        'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
     }
     
