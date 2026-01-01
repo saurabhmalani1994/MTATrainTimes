@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-MTA GTFS-RT API Client
+MTA GTFS-RT API Client - TRIP_ID PATTERN PARSING VERSION
 Fetches and parses real-time train data from MTA
+Uses trip_id pattern (e.g., S71R, N93R) for accurate direction detection
 """
 
 import logging
 import requests
 import time
+import csv
+import os
 from google.transit import gtfs_realtime_pb2
 
 logger = logging.getLogger(__name__)
@@ -35,33 +38,75 @@ class Train:
 class MTAClient:
     """Client for MTA GTFS-RT API"""
     
-    # MTA Direction IDs (from GTFS)
-    DIRECTION_NAMES = {
-        0: 'northbound',
-        1: 'southbound',
-        'NORTH': 'northbound',
-        'SOUTH': 'southbound',
-    }
-    
-    # Stop IDs for 25th St station
-    # Format: parent_station + direction_letter
-    STOP_MAPPING = {
-        'R35N': {'name': '25th Street', 'direction': 'northbound'},
-        'R35S': {'name': '25th Street', 'direction': 'southbound'},
-    }
-    
-    def __init__(self, api_key=None):
+    def __init__(self, api_key=None, trips_file='trips.txt'):
         """
         Initialize MTA client
         
         Args:
             api_key: Optional MTA API key
+            trips_file: Path to trips.txt GTFS file for lookups
         """
         self.api_key = api_key
         self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2fnyct"
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({'x-api-key': self.api_key})
+        
+        # Load trips data from CSV
+        self.trips_lookup = {}
+        self._load_trips_data(trips_file)
+    
+    def _load_trips_data(self, trips_file):
+        """
+        Load trips.txt CSV file and create lookup dictionary
+        
+        Maps trip_id pattern to destination information
+        
+        Args:
+            trips_file: Path to trips.txt file
+        """
+        if not os.path.exists(trips_file):
+            logger.warning(f"trips.txt file not found at {trips_file}")
+            return
+        
+        try:
+            with open(trips_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    trip_id = row['trip_id']
+                    trip_headsign = row['trip_headsign']
+                    
+                    # Extract the pattern from trip_id (e.g., "082250_R..S71R" → "S71R")
+                    # Format: some_prefix_ROUTE..PATTERNR
+                    if '_' in trip_id and '..' in trip_id:
+                        # Get the part after ".."
+                        parts = trip_id.split('..')
+                        if len(parts) >= 2:
+                            pattern = parts[-1]  # Get the last part (e.g., "S71R")
+                            
+                            # Extract direction from pattern
+                            # Format: [N or S][code]R
+                            if len(pattern) > 0:
+                                direction_char = pattern[0]  # First character
+                                
+                                if direction_char == 'N':
+                                    direction = 'northbound'
+                                elif direction_char == 'S':
+                                    direction = 'southbound'
+                                else:
+                                    continue
+                                
+                                # Store mapping by the pattern (e.g., "S71R", "N93R")
+                                self.trips_lookup[pattern] = {
+                                    'direction': direction,
+                                    'destination': trip_headsign,
+                                    'trip_id': trip_id
+                                }
+            
+            logger.debug(f"Loaded {len(self.trips_lookup)} trip patterns from {trips_file}")
+            
+        except Exception as e:
+            logger.error(f"Error loading trips.txt: {e}", exc_info=True)
     
     def get_feed(self, feed_path):
         """
@@ -93,9 +138,37 @@ class MTAClient:
             logger.error(f"Error parsing feed: {e}")
             return None
     
+    def _extract_pattern_from_trip_id(self, trip_id):
+        """
+        Extract the direction pattern from trip_id
+        
+        Format: "082250_R..S71R" → "S71R"
+        
+        Args:
+            trip_id: Full trip ID from GTFS-RT
+            
+        Returns:
+            Pattern string (e.g., "S71R", "N93R") or None
+        """
+        try:
+            if '..' not in trip_id:
+                return None
+            
+            # Get the part after ".."
+            parts = trip_id.split('..')
+            if len(parts) >= 2:
+                pattern = parts[-1]  # Last part (e.g., "S71R")
+                return pattern
+        except Exception as e:
+            logger.debug(f"Error extracting pattern from {trip_id}: {e}")
+        
+        return None
+    
     def parse_feed(self, feed, stop_id, route_id):
         """
         Parse GTFS-RT feed to extract train arrivals
+        
+        Uses trip_id pattern lookup for accurate direction mapping
         
         Args:
             feed: FeedMessage from MTA
@@ -125,24 +198,28 @@ class MTAClient:
                 if trip.route_id != route_id:
                     continue
                 
-                # Get direction from trip descriptor
-                # GTFS-RT direction_id: 0=one direction, 1=opposite
-                # For R train: 0=northbound, 1=southbound (typically)
-                direction = self._get_direction_from_trip(trip)
+                # Extract pattern from trip_id (e.g., "S71R", "N93R")
+                pattern = self._extract_pattern_from_trip_id(trip.trip_id)
                 
-                if direction not in ['northbound', 'southbound']:
+                if not pattern:
+                    logger.debug(f"Trip {trip.trip_id}: Cannot extract pattern from trip_id")
                     continue
                 
-                # Get the destination (headsign)
-                destination = self._get_destination(trip)
+                # Look up in trips.txt dictionary
+                if pattern not in self.trips_lookup:
+                    logger.debug(f"Trip {trip.trip_id}: Pattern {pattern} not in trips.txt")
+                    continue
                 
-                # Determine which suffix to look for
+                trip_info = self.trips_lookup[pattern]
+                direction = trip_info['direction']
+                destination = trip_info['destination']
+                
+                logger.debug(f"Trip {trip.trip_id}: pattern={pattern}, "
+                           f"direction={direction}, destination={destination}")
+                
+                # Determine which suffix to look for based on direction
                 stop_suffix = 'N' if direction == 'northbound' else 'S'
                 target_stop_id = f"{stop_id}{stop_suffix}"
-                
-                logger.debug(f"Trip {trip.trip_id}: route={route_id}, "
-                           f"direction={direction}, destination={destination}, "
-                           f"looking for stop_id={target_stop_id}")
                 
                 # Find stops matching our stop ID
                 found = False
@@ -159,17 +236,17 @@ class MTAClient:
                         if arrival_time:
                             train = Train(
                                 route_id=route_id,
-                                destination=destination,
+                                destination=destination[:20],  # Limit to 20 chars
                                 arrival_time=arrival_time,
                                 direction=direction
                             )
                             trains[direction].append(train)
-                            logger.debug(f"✓ Added train: {train}")
+                            logger.debug(f"✓ Added {direction} train: {train}")
                             found = True
                         break
                 
                 if not found:
-                    logger.debug(f"  Stop {target_stop_id} not found in trip")
+                    logger.debug(f"  Stop {target_stop_id} not found in trip stops")
             
             # Sort by arrival time and limit to next trains
             for direction in ['northbound', 'southbound']:
@@ -184,63 +261,6 @@ class MTAClient:
         except Exception as e:
             logger.error(f"Error parsing feed: {e}", exc_info=True)
             return trains
-    
-    def _get_direction_from_trip(self, trip):
-        """
-        Determine direction from trip descriptor
-        
-        Uses direction_id from GTFS when available, falls back to headsign parsing
-        
-        Args:
-            trip: TripDescriptor from GTFS-RT
-            
-        Returns:
-            'northbound' or 'southbound'
-        """
-        # Try direction_id first (more reliable)
-        if hasattr(trip, 'direction_id') and trip.direction_id is not None:
-            # For most NYC routes: 0=northbound/outbound, 1=southbound/inbound
-            # But this can vary by route
-            if trip.direction_id == 0:
-                return 'northbound'
-            elif trip.direction_id == 1:
-                return 'southbound'
-        
-        # Fallback: parse headsign for keywords
-        if hasattr(trip, 'trip_headsign') and trip.trip_headsign:
-            headsign = trip.trip_headsign.lower()
-            if any(word in headsign for word in ['whitehall', 'downtown', 'forest', 'cortlandt']):
-                return 'northbound'
-            elif any(word in headsign for word in ['bay ridge', 'brooklyn', '95 st']):
-                return 'southbound'
-        
-        # Final fallback: look at trip_id pattern
-        if hasattr(trip, 'trip_id'):
-            trip_id = trip.trip_id.upper()
-            if trip_id.endswith('N') or 'N0' in trip_id:
-                return 'northbound'
-            elif trip_id.endswith('S') or 'S0' in trip_id:
-                return 'southbound'
-        
-        logger.warning(f"Could not determine direction for trip {trip.trip_id}")
-        return 'northbound'  # Default fallback
-    
-    def _get_destination(self, trip):
-        """
-        Extract destination from trip
-        
-        Args:
-            trip: TripDescriptor from GTFS-RT
-            
-        Returns:
-            Destination string (e.g., 'Whitehall', 'Bay Ridge')
-        """
-        if hasattr(trip, 'trip_headsign') and trip.trip_headsign:
-            # Use the headsign, limiting to first 15 characters
-            return trip.trip_headsign[:15]
-        
-        # Fallback
-        return "Unknown"
     
     @staticmethod
     def get_display_name(route_id):
