@@ -78,7 +78,7 @@ class DisplayManager:
         
         # Try to find OpenSans font file
         font_paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            # "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/System/Library/Fonts/Helvetica.ttc",  # macOS
             "C:\\Windows\\Fonts\\arial.ttf",  # Windows
