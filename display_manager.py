@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
+
 """
-LED Display Manager - CRISP SINGLE-LAYER TEXT WITH TUNABLE SIZES
+LED Display Manager - OPENSANS TRUETYPE FONT WITH TUNABLE SIZES
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
+
 FEATURES:
-- Single-layer crisp text (using load_default() font)
+- OpenSans TrueType font rendering
 - Tunable font sizes via configuration
 - All previous fixes maintained
 """
 
 import logging
 import time
+import os
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
-
 
 class DisplayManager:
     """Manages rendering to LED matrix display"""
@@ -41,14 +43,12 @@ class DisplayManager:
     COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
     
-    # Font configuration - TUNABLE
-    # Using load_default() which is single-layer crisp
-    # These values control spacing/layout, not font size
+    # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
-        'header_spacing': 2,      # Pixels between letters in header
-        'badge_spacing': 1,       # Pixels between letters in badge
-        'dest_spacing': 2,        # Pixels between letters in destination
-        'time_spacing': 2,        # Pixels between letters in time
+        'header_size': 9,      # Header font size
+        'badge_size': 7,       # Train badge font size
+        'dest_size': 9,        # Destination font size
+        'time_size': 9,        # Time font size
     }
     
     def __init__(self):
@@ -59,17 +59,94 @@ class DisplayManager:
         # For testing/development without hardware
         self.test_mode = self.matrix is None
         
-        # Cache default font
-        try:
-            self.font = ImageFont.load_default(size=7)
-        except:
-            self.font = ImageFont.load_default()
+        # Load OpenSans TrueType fonts
+        self.fonts = self._load_fonts()
         
         if self.test_mode:
             logger.warning("Running in test mode - no LED matrix detected")
         else:
             logger.info("✓ LED matrix initialized successfully")
             logger.info(f"  Resolution: {self.matrix.width}x{self.matrix.height}")
+    
+    def _load_fonts(self):
+        """Load OpenSans TrueType fonts
+        
+        Returns:
+            Dict of font name -> ImageFont object
+        """
+        fonts = {}
+        
+        # Try to find OpenSans font file
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",  # macOS
+            "C:\\Windows\\Fonts\\arial.ttf",  # Windows
+        ]
+        
+        # First try to find OpenSans specifically
+        opensans_paths = [
+            "/usr/share/fonts/truetype/opensans/OpenSans-Regular.ttf",
+            "/usr/share/fonts/opentype/opensans/OpenSans-Regular.otf",
+            "/usr/local/share/fonts/OpenSans-Regular.ttf",
+        ]
+        
+        # Check for OpenSans first
+        font_file = None
+        for path in opensans_paths:
+            if os.path.exists(path):
+                font_file = path
+                logger.info(f"Found OpenSans font: {path}")
+                break
+        
+        # Fall back to other fonts if OpenSans not found
+        if not font_file:
+            logger.warning("OpenSans not found, trying fallback fonts...")
+            for path in font_paths:
+                if os.path.exists(path):
+                    font_file = path
+                    logger.info(f"Using fallback font: {path}")
+                    break
+        
+        # Load fonts at different sizes
+        if font_file:
+            try:
+                fonts['header'] = ImageFont.truetype(font_file, self.FONT_CONFIG['header_size'])
+                fonts['badge'] = ImageFont.truetype(font_file, self.FONT_CONFIG['badge_size'])
+                fonts['dest'] = ImageFont.truetype(font_file, self.FONT_CONFIG['dest_size'])
+                fonts['time'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_size'])
+                logger.info(f"✓ Loaded TrueType fonts from {font_file}")
+            except Exception as e:
+                logger.warning(f"Could not load TrueType font: {e}")
+                fonts = self._get_fallback_fonts()
+        else:
+            logger.warning("No suitable font found, using default fonts")
+            fonts = self._get_fallback_fonts()
+        
+        return fonts
+    
+    def _get_fallback_fonts(self):
+        """Get fallback fonts (default PIL fonts)
+        
+        Returns:
+            Dict of font name -> ImageFont object
+        """
+        fonts = {}
+        try:
+            fonts['header'] = ImageFont.load_default(size=9)
+            fonts['badge'] = ImageFont.load_default(size=7)
+            fonts['dest'] = ImageFont.load_default(size=9)
+            fonts['time'] = ImageFont.load_default(size=9)
+        except:
+            # Very old PIL version
+            default_font = ImageFont.load_default()
+            fonts['header'] = default_font
+            fonts['badge'] = default_font
+            fonts['dest'] = default_font
+            fonts['time'] = default_font
+        
+        logger.info("Using fallback default fonts")
+        return fonts
     
     def try_init_matrix(self):
         """
@@ -78,7 +155,6 @@ class DisplayManager:
         """
         try:
             from rgbmatrix import RGBMatrix, RGBMatrixOptions
-            
             logger.debug("rgbmatrix library found, initializing...")
             
             # Create options (same as basic_test.py)
@@ -98,7 +174,6 @@ class DisplayManager:
         except ImportError as e:
             logger.debug(f"rgbmatrix library not available: {e}")
             self.matrix = None
-            
         except Exception as e:
             logger.error(f"Failed to initialize LED matrix: {e}")
             logger.debug(f"Full error: {e}", exc_info=True)
@@ -138,25 +213,17 @@ class DisplayManager:
         """
         Draw header row showing full NORTHBOUND/SOUTHBOUND text
         Positioned 2 pixels higher than before
-        Using CRISP single-layer load_default() font
+        Using OpenSans TrueType font
         
         Args:
             draw: PIL ImageDraw object
             direction: 'northbound' or 'southbound'
         """
         try:
-            # Use crisp single-layer font (load_default)
-            font = ImageFont.load_default(size=9)
+            font = self.fonts['header']
             
             # Full direction text
             direction_text = "NORTHBOUND" if direction == 'northbound' else "SOUTHBOUND"
-            
-            # Draw border rectangle
-            # draw.rectangle(
-            #     [(0, 0), (self.DISPLAY_WIDTH - 1, self.HEADER_HEIGHT - 1)],
-            #     outline=self.COLORS['dark_gray'],
-            #     fill=self.COLORS['black']
-            # )
             
             # Get text dimensions
             bbox = draw.textbbox((0, 0), direction_text, font=font)
@@ -167,7 +234,7 @@ class DisplayManager:
             x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
             y_pos = -2  # 2 pixels higher than default centered position
             
-            # Draw text - single-layer crisp rendering
+            # Draw text
             draw.text(
                 (x_pos, y_pos),
                 direction_text,
@@ -181,9 +248,8 @@ class DisplayManager:
     def draw_train_row(self, draw, train, y_pos, row_idx):
         """
         Draw a single train row with three columns
-        
         Layout: [Train # in red circle] [Destination] [Time]
-        Using CRISP single-layer load_default() font
+        Using OpenSans TrueType font
         
         Args:
             draw: PIL ImageDraw object
@@ -192,8 +258,7 @@ class DisplayManager:
             row_idx: Row index (0 or 1)
         """
         try:
-            # Use crisp single-layer font
-            font = ImageFont.load_default(size=9)
+            font = self.fonts['dest']
             
             # Column 1: Train number in red circle
             self.draw_train_badge(draw, train.route_id, y_pos)
@@ -208,7 +273,8 @@ class DisplayManager:
             time_text = self.format_time_text(minutes)
             
             # Get bounding box for proper alignment
-            bbox = draw.textbbox((0, 0), time_text, font=font)
+            time_font = self.fonts['time']
+            bbox = draw.textbbox((0, 0), time_text, font=time_font)
             text_height = bbox[3] - bbox[1]
             
             # Vertically center time in row
@@ -217,7 +283,7 @@ class DisplayManager:
             draw.text(
                 (col3_x + 2, time_y),
                 time_text,
-                font=font,
+                font=time_font,
                 fill=self.COLORS['cyan']
             )
             
@@ -228,7 +294,7 @@ class DisplayManager:
         """
         Draw train number in yellow text with red circle
         Positioned 2 pixels higher and 1 pixel to the right
-        Using CRISP single-layer load_default() font
+        Using OpenSans TrueType font
         
         Args:
             draw: PIL ImageDraw object
@@ -236,12 +302,10 @@ class DisplayManager:
             y_pos: Y position of row
         """
         try:
-            # Use crisp single-layer font
-            font = self.font
+            font = self.fonts['badge']
             
             # Circle parameters
             circle_x = 5
-            # 2 pixels higher: subtract 2 from center calculation
             circle_y = y_pos + self.ROW_HEIGHT // 2 - 0
             circle_radius = 5
             
@@ -258,11 +322,11 @@ class DisplayManager:
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Center in circle, with +1 pixel right and -2 pixels up (already applied to circle_y)
+            # Center in circle, with +1 pixel right and -2 pixels up
             text_x = circle_x - text_width // 2 + 0  # 1 pixel right
             text_y = circle_y - text_height // 2 - 2  # 2 pixels up
             
-            # Draw text - single-layer crisp rendering
+            # Draw text
             draw.text(
                 (text_x, text_y),
                 route_id,
@@ -276,7 +340,7 @@ class DisplayManager:
     def draw_destination(self, draw, destination, x_pos, y_pos, font):
         """
         Draw destination text with truncation if too long
-        Using CRISP single-layer load_default() font
+        Using OpenSans TrueType font
         
         Args:
             draw: PIL ImageDraw object
@@ -323,7 +387,7 @@ class DisplayManager:
                     font=font,
                     fill=self.COLORS['white']
                 )
-            
+                
         except Exception as e:
             logger.error(f"Error drawing destination: {e}")
     
@@ -365,7 +429,6 @@ class DisplayManager:
             
         except AttributeError as e:
             logger.error(f"Matrix method error: {e}")
-            
         except Exception as e:
             logger.error(f"Error displaying image: {e}", exc_info=True)
     
@@ -381,7 +444,6 @@ class DisplayManager:
             filename = f"/tmp/mta_display_{direction}_{int(time.time())}.png"
             img.save(filename)
             logger.debug(f"Saved test image: {filename}")
-            
         except Exception as e:
             logger.debug(f"Could not save test image: {e}")
     
@@ -392,6 +454,5 @@ class DisplayManager:
                 # Clear display
                 self.matrix.Clear()
                 logger.info("Display cleared on shutdown")
-                
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
