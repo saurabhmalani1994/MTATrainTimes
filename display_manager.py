@@ -37,7 +37,7 @@ class DisplayManager:
     
     # Layout dimensions
     HEADER_HEIGHT = 5
-    ROW_HEIGHT = 15
+    ROW_HEIGHT = 13
     COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
     DEST_MAX_WIDTH = 30  # Max pixels for destination text
     
@@ -122,7 +122,7 @@ class DisplayManager:
             
             # Draw train rows
             for idx, train in enumerate(trains[:2]):
-                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 1
+                row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 2
                 self.draw_train_row(draw, train, row_y, idx)
             
             # Display or save
@@ -165,7 +165,7 @@ class DisplayManager:
             
             # Center horizontally, position 2 pixels higher (use y=0)
             x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
-            y_pos = 0  # 2 pixels higher than default centered position
+            y_pos = 2  # 2 pixels higher than default centered position
             
             # Draw text - single-layer crisp rendering
             draw.text(
