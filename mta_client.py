@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-MTA GTFS-RT API Client - TRIP_ID PATTERN PARSING VERSION
+MTA GTFS-RT API Client
 Fetches and parses real-time train data from MTA
-Uses trip_id pattern (e.g., S71R, N93R) for accurate direction detection
+Uses route + direction mapping to provide destinations
 """
 
 import logging
 import requests
 import time
-import csv
-import os
+from collections import defaultdict
 from google.transit import gtfs_realtime_pb2
 
 logger = logging.getLogger(__name__)
@@ -38,79 +37,105 @@ class Train:
 class MTAClient:
     """Client for MTA GTFS-RT API"""
     
-    def __init__(self, api_key=None, trips_file='trips.txt'):
-        """
-        Initialize MTA client
+    # Destination mapping by route and direction
+    # Based on typical NYC MTA route patterns
+    DESTINATIONS = {
+        'R': {
+            'northbound': 'Whitehall Terminal',
+            'southbound': 'Bay Ridge-95 St'
+        },
+        'N': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'Q': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'W': {
+            'northbound': 'Astoria-Ditmars Blvd',
+            'southbound': 'Whitehall Terminal'
+        },
+        'D': {
+            'northbound': 'Norwood-205 St',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'B': {
+            'northbound': 'Bedford Park Blvd',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'M': {
+            'northbound': 'Forest Hills-71 Ave',
+            'southbound': 'Jamaica Center'
+        },
+        'F': {
+            'northbound': 'Jamaica-Van Wyck',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        '1': {
+            'northbound': 'Van Cortlandt Park-242 St',
+            'southbound': 'South Ferry'
+        },
+        '2': {
+            'northbound': 'Wakefield-241 St',
+            'southbound': 'Flatbush Ave-Brooklyn College'
+        },
+        '3': {
+            'northbound': 'Harlem-148 St',
+            'southbound': 'New Lots Ave'
+        },
+        '4': {
+            'northbound': 'Woodlawn',
+            'southbound': 'New Lots Ave'
+        },
+        '5': {
+            'northbound': 'Eastchester-Dyre Ave',
+            'southbound': 'Flatbush Ave-Brooklyn College'
+        },
+        'A': {
+            'northbound': 'Inwood-207 St',
+            'southbound': 'Far Rockaway-Mott Ave'
+        },
+        'C': {
+            'northbound': 'West 168 St',
+            'southbound': 'Euclid Ave'
+        },
+        'E': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'World Trade Center'
+        },
+        'G': {
+            'northbound': 'Court Square',
+            'southbound': 'Coney Island-Stillwell'
+        },
+        'J': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'Broad St'
+        },
+        'Z': {
+            'northbound': 'Jamaica Center',
+            'southbound': 'Broad St'
+        },
+        'L': {
+            'northbound': '8 Ave',
+            'southbound': 'Canarsie-Rockaway'
+        },
+    }
+    
+    def __init__(self, api_key=None):
+        """Initialize MTA client
         
         Args:
             api_key: Optional MTA API key
-            trips_file: Path to trips.txt GTFS file for lookups
         """
         self.api_key = api_key
         self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2fnyct"
         self.session = requests.Session()
         if self.api_key:
-            self.session.headers.update({'x-api-key': self.api_key})
-        
-        # Load trips data from CSV
-        self.trips_lookup = {}
-        self._load_trips_data(trips_file)
-    
-    def _load_trips_data(self, trips_file):
-        """
-        Load trips.txt CSV file and create lookup dictionary
-        
-        Maps trip_id pattern to destination information
-        
-        Args:
-            trips_file: Path to trips.txt file
-        """
-        if not os.path.exists(trips_file):
-            logger.warning(f"trips.txt file not found at {trips_file}")
-            return
-        
-        try:
-            with open(trips_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    trip_id = row['trip_id']
-                    trip_headsign = row['trip_headsign']
-                    
-                    # Extract the pattern from trip_id (e.g., "082250_R..S71R" → "S71R")
-                    # Format: some_prefix_ROUTE..PATTERNR
-                    if '_' in trip_id and '..' in trip_id:
-                        # Get the part after ".."
-                        parts = trip_id.split('..')
-                        if len(parts) >= 2:
-                            pattern = parts[-1]  # Get the last part (e.g., "S71R")
-                            
-                            # Extract direction from pattern
-                            # Format: [N or S][code]R
-                            if len(pattern) > 0:
-                                direction_char = pattern[0]  # First character
-                                
-                                if direction_char == 'N':
-                                    direction = 'northbound'
-                                elif direction_char == 'S':
-                                    direction = 'southbound'
-                                else:
-                                    continue
-                                
-                                # Store mapping by the pattern (e.g., "S71R", "N93R")
-                                self.trips_lookup[pattern] = {
-                                    'direction': direction,
-                                    'destination': trip_headsign,
-                                    'trip_id': trip_id
-                                }
-            
-            logger.debug(f"Loaded {len(self.trips_lookup)} trip patterns from {trips_file}")
-            
-        except Exception as e:
-            logger.error(f"Error loading trips.txt: {e}", exc_info=True)
+            self.session.headers.update({"x-api-key": self.api_key})
     
     def get_feed(self, feed_path):
-        """
-        Fetch GTFS-RT feed from MTA
+        """Fetch GTFS-RT feed from MTA
         
         Args:
             feed_path: Feed path (e.g., 'gtfs-nqrw' for NQRW lines)
@@ -138,123 +163,126 @@ class MTAClient:
             logger.error(f"Error parsing feed: {e}")
             return None
     
-    def _extract_pattern_from_trip_id(self, trip_id):
-        """
-        Extract the direction pattern from trip_id
+    def parse_feed(self, feed, stop_id, route_ids=None):
+        """Parse GTFS-RT feed to extract train arrivals
         
-        Format: "082250_R..S71R" → "S71R"
-        
-        Args:
-            trip_id: Full trip ID from GTFS-RT
-            
-        Returns:
-            Pattern string (e.g., "S71R", "N93R") or None
-        """
-        try:
-            if '..' not in trip_id:
-                return None
-            
-            # Get the part after ".."
-            parts = trip_id.split('..')
-            if len(parts) >= 2:
-                pattern = parts[-1]  # Last part (e.g., "S71R")
-                return pattern
-        except Exception as e:
-            logger.debug(f"Error extracting pattern from {trip_id}: {e}")
-        
-        return None
-    
-    def parse_feed(self, feed, stop_id, route_id):
-        """
-        Parse GTFS-RT feed to extract train arrivals
-        
-        Uses trip_id pattern lookup for accurate direction mapping
+        Uses route + direction mapping for destinations
         
         Args:
             feed: FeedMessage from MTA
             stop_id: Base stop ID to filter (e.g., 'R35' for 25th St)
-                     The actual stop_ids in the feed will be 'R35N' and 'R35S'
-            route_id: Route ID (e.g., 'R' for R train)
-            
+            route_ids: List of route IDs to include, or None for all routes
+                      
         Returns:
             Dict with 'northbound' and 'southbound' lists of Train objects
         """
-        trains = {
-            'northbound': [],
-            'southbound': []
-        }
+        trains = {"northbound": [], "southbound": []}
         
         try:
-            logger.debug(f"Parsing feed for stop_id base: {stop_id}, route: {route_id}")
+            logger.debug(f"Parsing feed for stop_id={stop_id}, route_ids={route_ids}")
+            
+            # First pass: collect candidate stops
+            all_stops = defaultdict(int)
+            for entity in feed.entity:
+                if not entity.HasField("trip_update"):
+                    continue
+                
+                for stop_time in entity.trip_update.stop_time_update:
+                    stop = stop_time.stop_id
+                    if stop_id.upper() in stop.upper() or stop.startswith(stop_id):
+                        all_stops[stop] += 1
+            
+            if all_stops:
+                logger.debug(f"Found {len(all_stops)} candidate stops matching '{stop_id}':")
+                for stop in sorted(all_stops.keys()):
+                    logger.debug(f"  {stop}: {all_stops[stop]} trips")
+            
+            # Second pass: extract trains
+            processed = 0
+            matched = 0
             
             for entity in feed.entity:
-                if not entity.HasField('trip_update'):
+                if not entity.HasField("trip_update"):
                     continue
                 
                 trip_update = entity.trip_update
                 trip = trip_update.trip
+                route_id = trip.route_id
                 
-                # Filter by route
-                if trip.route_id != route_id:
-                    continue
+                processed += 1
                 
-                # Extract pattern from trip_id (e.g., "S71R", "N93R")
-                pattern = self._extract_pattern_from_trip_id(trip.trip_id)
+                # MULTIPLE ROUTES SUPPORT
+                if route_ids is not None:
+                    if route_id not in route_ids:
+                        continue
                 
-                if not pattern:
-                    logger.debug(f"Trip {trip.trip_id}: Cannot extract pattern from trip_id")
-                    continue
-                
-                # Look up in trips.txt dictionary
-                if pattern not in self.trips_lookup:
-                    logger.debug(f"Trip {trip.trip_id}: Pattern {pattern} not in trips.txt")
-                    continue
-                
-                trip_info = self.trips_lookup[pattern]
-                direction = trip_info['direction']
-                destination = trip_info['destination']
-                
-                logger.debug(f"Trip {trip.trip_id}: pattern={pattern}, "
-                           f"direction={direction}, destination={destination}")
-                
-                # Determine which suffix to look for based on direction
-                stop_suffix = 'N' if direction == 'northbound' else 'S'
-                target_stop_id = f"{stop_id}{stop_suffix}"
-                
-                # Find stops matching our stop ID
-                found = False
+                # Check each stop in the trip
                 for stop_time in trip_update.stop_time_update:
-                    if stop_time.stop_id == target_stop_id:
-                        # Found the stop we're looking for
+                    stop_id_check = stop_time.stop_id
+                    
+                    # Check if this stop matches our target
+                    matches = False
+                    
+                    if stop_id.upper() in stop_id_check.upper():
+                        matches = True
+                    elif stop_id_check.startswith(stop_id):
+                        matches = True
+                    elif stop_id in stop_id_check:
+                        matches = True
+                    
+                    if matches:
+                        # Determine direction from stop_id suffix
+                        stop_upper = stop_id_check.upper()
+                        direction = None
+                        
+                        if stop_upper.endswith('N') or stop_upper.endswith('1'):
+                            direction = "northbound"
+                        elif stop_upper.endswith('S') or stop_upper.endswith('2'):
+                            direction = "southbound"
+                        elif stop_upper.endswith('0') or stop_upper.endswith('3'):
+                            # Use direction_id as fallback
+                            direction_id = trip.direction_id if hasattr(trip, 'direction_id') else 0
+                            direction = "northbound" if direction_id == 0 else "southbound"
+                        
+                        # Get destination from mapping (or Unknown as fallback)
+                        destination = "Unknown"
+                        if route_id in self.DESTINATIONS:
+                            destination = self.DESTINATIONS[route_id].get(direction, "Unknown")
+                        
+                        # Get arrival time
                         arrival_time = None
-                        if stop_time.HasField('arrival'):
+                        if stop_time.HasField("arrival"):
                             arrival_time = stop_time.arrival.time
-                        elif stop_time.HasField('departure'):
-                            # If no arrival, use departure
+                        elif stop_time.HasField("departure"):
                             arrival_time = stop_time.departure.time
                         
-                        if arrival_time:
+                        if arrival_time and direction:
                             train = Train(
                                 route_id=route_id,
-                                destination=destination[:20],  # Limit to 20 chars
+                                destination=destination,
                                 arrival_time=arrival_time,
                                 direction=direction
                             )
                             trains[direction].append(train)
-                            logger.debug(f"✓ Added {direction} train: {train}")
-                            found = True
-                        break
-                
-                if not found:
-                    logger.debug(f"  Stop {target_stop_id} not found in trip stops")
+                            matched += 1
+                            logger.debug(f"✓ Added {direction} train: {route_id} to '{destination}' (stop: {stop_id_check})")
+                        
+                        break  # Found this trip's stop, move to next trip
             
-            # Sort by arrival time and limit to next trains
-            for direction in ['northbound', 'southbound']:
+            logger.info(f"Processed {processed} trips, matched {matched} to stop '{stop_id}'")
+            
+            # Sort by arrival time and limit to top 5
+            for direction in ["northbound", "southbound"]:
                 trains[direction].sort(key=lambda t: t.arrival_time)
-                trains[direction] = trains[direction][:5]  # Keep top 5
+                trains[direction] = trains[direction][:5]
             
-            logger.info(f"Parsed trains - Northbound: {len(trains['northbound'])}, "
-                       f"Southbound: {len(trains['southbound'])}")
+            logger.info(f"Parsed trains - Northbound: {len(trains['northbound'])}, Southbound: {len(trains['southbound'])}")
+            
+            if len(trains['northbound']) == 0 and len(trains['southbound']) == 0:
+                logger.warning("⚠ No trains found!")
+                logger.warning(f"  Stop ID: '{stop_id}'")
+                logger.warning(f"  Routes: {route_ids}")
+                logger.warning(f"  Processed {processed} total trips")
             
             return trains
             
