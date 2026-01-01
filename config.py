@@ -18,9 +18,9 @@ class Config:
     FEED_PATH = 'gtfs-nqrw'
     
     # Stop ID for 25th Street station
-    # For R train: '414' is the stop ID
-    # Northbound: '414N', Southbound: '414S'
-    STOP_ID = '414'
+    # For R train: 'R35' is the stop ID
+    # Northbound: 'R35N', Southbound: 'R35S'
+    STOP_ID = 'R35'
     
     # Route ID
     ROUTE_ID = 'R'
@@ -50,25 +50,11 @@ class Config:
     # You can modify these for different stations
     STATION_CONFIGS = {
         '25th_st_r_brooklyn': {
-            'stop_id': '414',
+            'stop_id': 'R35',
             'route_id': 'R',
             'feed_path': 'gtfs-nqrw',
             'stop_name': '25th St (Brooklyn)',
             'description': 'R train at 25th Street, Brooklyn'
-        },
-        '25th_st_n_manhattan': {
-            'stop_id': '101',
-            'route_id': 'N',
-            'feed_path': 'gtfs-nqrw',
-            'stop_name': '25th St (Manhattan)',
-            'description': 'N train at 25th Street, Manhattan'
-        },
-        'canal_st': {
-            'stop_id': '301',
-            'route_id': 'N',
-            'feed_path': 'gtfs-nqrw',
-            'stop_name': 'Canal St',
-            'description': 'N train at Canal Street'
         },
     }
     
