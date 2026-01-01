@@ -45,10 +45,10 @@ class DisplayManager:
     # Using load_default() which is single-layer crisp
     # These values control spacing/layout, not font size
     FONT_CONFIG = {
-        'header_spacing': 1,      # Pixels between letters in header
+        'header_spacing': 2,      # Pixels between letters in header
         'badge_spacing': 1,       # Pixels between letters in badge
-        'dest_spacing': 1,        # Pixels between letters in destination
-        'time_spacing': 1,        # Pixels between letters in time
+        'dest_spacing': 2,        # Pixels between letters in destination
+        'time_spacing': 2,        # Pixels between letters in time
     }
     
     def __init__(self):
@@ -240,9 +240,9 @@ class DisplayManager:
             font = self.font
             
             # Circle parameters
-            circle_x = 6
+            circle_x = 5
             # 2 pixels higher: subtract 2 from center calculation
-            circle_y = y_pos + self.ROW_HEIGHT // 2 - 2
+            circle_y = y_pos + self.ROW_HEIGHT // 2 - 0
             circle_radius = 4
             
             # Draw red circle outline only
