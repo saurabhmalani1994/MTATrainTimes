@@ -56,7 +56,7 @@ class MTAClient:
             api_key: Optional MTA API key
         """
         self.api_key = api_key
-        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2f"
+        self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2fnyct"
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
@@ -71,7 +71,7 @@ class MTAClient:
             Parsed FeedMessage or None on error
         """
         try:
-            url = f"{self.base_url}nyct/{feed_path}"
+            url = f"{self.base_url}/{feed_path}"
             logger.debug(f"Fetching from {url}")
             
             response = self.session.get(url, timeout=10)
@@ -107,7 +107,7 @@ class MTAClient:
         trains = {"northbound": [], "southbound": []}
         
         try:
-            logger.debug(f"Parsing feed for stop_id={stop_id}, routes={route_ids}")
+            logger.debug(f"Parsing feed for stop_id={stop_id}, route_ids={route_ids}")
             
             for entity in feed.entity:
                 if not entity.HasField("trip_update"):
@@ -136,7 +136,7 @@ class MTAClient:
                 stop_suffix = "N" if direction == "northbound" else "S"
                 target_stop_id = f"{stop_id}{stop_suffix}"
                 
-                logger.debug(f"Trip {trip.trip_id}: route={trip.route_id}, direction={direction}, destination={destination}, looking for stopid={target_stop_id}")
+                logger.debug(f"Trip {trip.trip_id}: route={trip.route_id}, direction={direction}, destination={destination}, looking for stop_id={target_stop_id}")
                 
                 # Find this stop in the trip's stops
                 found = False

@@ -52,10 +52,11 @@ class MTATrainDisplay:
                 return
             
             # Parse feed with support for multiple routes
+            # Pass ROUTE_IDS (can be list like ["R", "N", "D"] or None for all)
             self.train_data = self.mta_client.parse_feed(
                 feed, 
                 self.config.STOP_ID,
-                self.config.ROUTE_IDS  # Pass the list of route IDs (or None for all)
+                route_ids=self.config.ROUTE_IDS
             )
             self.last_update = time.time()
             
