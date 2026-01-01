@@ -51,7 +51,7 @@ class DisplayManager:
         'header_size': 9,      # Header font size
         'badge_size': 9,       # Train badge font size
         'dest_size': 9,        # Destination font size
-        'time_size': 8,        # Time font size
+        'time_size': 9,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
     }
     
@@ -137,8 +137,8 @@ class DisplayManager:
                 fonts['header'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['header_size'])
                 fonts['badge'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['badge_size'])
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
-                fonts['time'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['time_size'])
-                fonts['time_now'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['time_now_size'])
+                fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -191,7 +191,7 @@ class DisplayManager:
             options.parallel = 1
             options.hardware_mapping = "regular"
             options.gpio_slowdown = 2
-            options.brightness = 40
+            options.brightness = 80
             
             # Create matrix
             self.matrix = RGBMatrix(options=options)
