@@ -9,6 +9,7 @@ FEATURES:
 - Sliding destination text animation with proper clipping
 - Tunable font sizes via configuration
 - All previous fixes maintained
+- Smaller font for 'NOW' time display
 """
 
 import logging
@@ -51,6 +52,7 @@ class DisplayManager:
         'badge_size': 7,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 9,        # Time font size
+        'time_now_size': 7,    # Smaller size for 'NOW' text
     }
     
     # Sliding animation configuration
@@ -131,6 +133,7 @@ class DisplayManager:
                 fonts['badge'] = ImageFont.truetype(font_file, self.FONT_CONFIG['badge_size'])
                 fonts['dest'] = ImageFont.truetype(font_file, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -153,6 +156,7 @@ class DisplayManager:
             fonts['badge'] = ImageFont.load_default(size=7)
             fonts['dest'] = ImageFont.load_default(size=9)
             fonts['time'] = ImageFont.load_default(size=9)
+            fonts['time_now'] = ImageFont.load_default(size=7)
         except:
             # Very old PIL version
             default_font = ImageFont.load_default()
@@ -160,6 +164,7 @@ class DisplayManager:
             fonts['badge'] = default_font
             fonts['dest'] = default_font
             fonts['time'] = default_font
+            fonts['time_now'] = default_font
         
         logger.info("Using fallback default fonts")
         return fonts
@@ -229,11 +234,17 @@ class DisplayManager:
                 row_y = self.HEADER_HEIGHT + (idx * self.ROW_HEIGHT) + 2
                 self.draw_train_badge(draw, train.route_id, row_y)
                 
-                # Draw time
+                # Draw time with conditional font size
                 col3_x = self.COL_WIDTHS[0] + self.COL_WIDTHS[1]
                 minutes = train.get_minutes_to_arrival()
                 time_text = self.format_time_text(minutes)
-                time_font = self.fonts['time']
+                
+                # Use smaller font for 'NOW', regular font for minutes
+                if time_text == "NOW":
+                    time_font = self.fonts['time_now']
+                else:
+                    time_font = self.fonts['time']
+                
                 bbox = draw.textbbox((0, 0), time_text, font=time_font)
                 text_height = bbox[3] - bbox[1]
                 time_y = row_y + (self.ROW_HEIGHT - text_height) // 2
@@ -376,7 +387,7 @@ class DisplayManager:
             # Circle parameters
             circle_x = 5
             circle_y = y_pos + self.ROW_HEIGHT // 2 - 0
-            circle_radius = 4.5
+            circle_radius = 5
             
             # Draw red circle outline only
             draw.ellipse(
@@ -393,7 +404,7 @@ class DisplayManager:
             
             # Center in circle, with +1 pixel right and -2 pixels up
             text_x = circle_x - text_width // 2 + 0  # 1 pixel right
-            text_y = circle_y - text_height // 2 - 3  # 2 pixels up
+            text_y = circle_y - text_height // 2 - 2  # 2 pixels up
             
             # Draw text
             draw.text(
@@ -405,6 +416,70 @@ class DisplayManager:
             
         except Exception as e:
             logger.error(f"Error drawing train badge: {e}")
+    
+    def draw_destination_sliding(self, draw, destination, x_pos, y_pos, font):
+        """
+        Draw destination text with sliding animation if too long
+        Text slides back and forth to show full length
+        Clipped to stay within destination column bounds
+        
+        Args:
+            draw: PIL ImageDraw object
+            destination: Destination string
+            x_pos: X position of column
+            y_pos: Y position
+            font: Font to use
+        """
+        try:
+            # Get text dimensions
+            bbox = draw.textbbox((0, 0), destination, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Max width for destination column
+            max_width = self.DEST_MAX_WIDTH
+            
+            # Vertically center text in row
+            text_y = y_pos + (self.ROW_HEIGHT - text_height) // 2
+            
+            # If text fits, just draw it
+            if text_width <= max_width:
+                draw.text(
+                    (x_pos + 2, text_y),
+                    destination,
+                    font=font,
+                    fill=self.COLORS['white']
+                )
+            else:
+                # Text is too long - animate sliding with clipping
+                offset = self._calculate_slide_offset(destination, max_width)
+                
+                # Draw text directly on main image with offset
+                # The text will naturally be clipped at the image boundaries
+                # We offset it to create the sliding effect
+                draw.text(
+                    (x_pos + 2 - offset, text_y),
+                    destination,
+                    font=font,
+                    fill=self.COLORS['white']
+                )
+                
+                # Fill in areas outside the destination column to hide overflow
+                # Left side (badge column) - draw black rectangle to hide overflow
+                img = draw.im
+                for py in range(y_pos, y_pos + self.ROW_HEIGHT):
+                    for px in range(x_pos + 2):
+                        if px >= 0:
+                            img.putpixel((px, py), self.COLORS['black'])
+                
+                # Right side (time column) - draw black rectangle to hide overflow
+                for py in range(y_pos, y_pos + self.ROW_HEIGHT):
+                    for px in range(x_pos + 2 + max_width, self.DISPLAY_WIDTH):
+                        if px < self.DISPLAY_WIDTH:
+                            img.putpixel((px, py), self.COLORS['black'])
+                
+        except Exception as e:
+            logger.error(f"Error drawing destination: {e}")
     
     def _calculate_slide_offset(self, text, max_width):
         """
