@@ -654,7 +654,8 @@ class DisplayManager:
         # Frames 0-29: Fahrenheit (phase 1)
         # Frames 30-59: Celsius (phase 2)
         # Frames 60-89: Fahrenheit (phase 3)
-        return 33 <= frame/self.TEMP_CYCLE_FRAMES * 100 < 66
+        # return 33 <= frame/self.TEMP_CYCLE_FRAMES * 100 < 66
+        return False
 
     def render_weather(self, weather_data):
         """
