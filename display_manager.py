@@ -53,6 +53,7 @@ class DisplayManager:
         'dest_size': 9,        # Destination font size
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
+        'weather_size': 8,    # Weather info font size
     }
     
     # Sliding animation configuration
@@ -139,6 +140,7 @@ class DisplayManager:
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
+                fonts['weather'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['weather_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -633,7 +635,7 @@ class DisplayManager:
             # Safety check
             if weather_data is None:
                 # Show "No Data" message
-                font = self.fonts['dest']
+                font = self.fonts['weather']
                 text = "Weather Unavailable"
                 bbox = draw.textbbox((0, 0), text, font=font)
                 text_width = bbox[2] - bbox[0]
@@ -665,7 +667,7 @@ class DisplayManager:
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
             info_x = 22
             row_height = 7
-            font_small = self.fonts['badge']
+            font_small = self.fonts['weather']
             
             # Row 1: Date (e.g., "Fri, Jan 2 2026")
             y_row1 = 2
