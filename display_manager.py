@@ -795,17 +795,17 @@ class DisplayManager:
             elif frame < pause_frames + slide_frames:
                 # Scroll right to left (text exits left)
                 progress = frame - pause_frames
-                offset = -int((progress / slide_frames) * slide_distance)
+                offset = int((progress / slide_frames) * slide_distance)
                 return offset
                 
             elif frame < (pause_frames * 2) + slide_frames:
                 # Pause at end position (text fully hidden)
-                return -int(slide_distance)
+                return int(slide_distance)
                 
             else:
                 # Scroll back left to right (return to start)
                 progress = frame - ((pause_frames * 2) + slide_frames)
-                offset = -int(slide_distance) + int((progress / slide_frames) * slide_distance)
+                offset = int(slide_distance) - int((progress / slide_frames) * slide_distance)
                 return offset
                 
         except Exception as e:
