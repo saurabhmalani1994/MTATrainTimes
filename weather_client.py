@@ -3,6 +3,7 @@
 """
 Weather API Client - Fetches current weather from NOAA/weather.gov
 Uses public API without authentication
+Fixed to parse OKX grid and points correctly
 """
 
 import logging
@@ -27,15 +28,12 @@ class WeatherClient:
     """Client for NOAA Weather.gov API"""
     
     def __init__(self):
-        """Initialize weather client"""
-        # Station: KWO35 (Chicago area)
-        # SAME Code: 036047 (Cook County, IL)
-        self.station_id = "KWO35"
-        self.same_code = "036047"
-        
-        # NOAA API endpoints
-        self.observations_url = f"https://api.weather.gov/gridpoints/OKX/34,33"
-        self.points_url = f"https://api.weather.gov/points/40.6625,-73.9978" 
+        """Initialize weather client with New York area coordinates"""
+        # OKX Grid Point: 40.6625°N, 73.9978°W
+        # Grid: OKX/34,33
+        self.grid_url = "https://api.weather.gov/gridpoints/OKX/34,33"
+        self.forecast_url = "https://api.weather.gov/gridpoints/OKX/34,33/forecast"
+        self.hourly_forecast_url = "https://api.weather.gov/gridpoints/OKX/34,33/forecast/hourly"
         
     def fetch_weather(self):
         """
@@ -47,73 +45,116 @@ class WeatherClient:
         try:
             weather = WeatherData()
             weather.timestamp = datetime.now()
-            weather.date_str = weather.timestamp.strftime("%a, %b %-d %Y").replace(" 0", " ")
-            # Format: "Fri, Jan 2 2026"
+            # Format date as "Fri, Jan 2 2026"
+            weather.date_str = weather.timestamp.strftime("%a, %b %-d %Y")
+            if " 0" in weather.date_str:  # Remove leading zero from day
+                weather.date_str = weather.date_str.replace(" 0", " ")
             
-            # Fetch observations
-            obs_response = requests.get(
-                self.observations_url,
+            logger.info(f"Fetching weather from OKX gridpoints...")
+            
+            # Fetch gridpoint data (has current conditions)
+            grid_response = requests.get(
+                self.grid_url,
                 timeout=10,
                 headers={"User-Agent": "MTA-Display (https://github.com)"}
             )
-            obs_response.raise_for_status()
-            obs_data = obs_response.json()
+            grid_response.raise_for_status()
+            grid_data = grid_response.json()
             
-            # Extract data from properties
-            properties = obs_data.get("properties", {})
+            # Extract properties from gridpoint
+            properties = grid_data.get("properties", {})
             
-            # Temperature (convert from Celsius to Fahrenheit if needed)
-            temp_c = properties.get("temperature", {}).get("value")
-            if temp_c is not None:
-                weather.temperature = int(round(temp_c * 9/5 + 32))
+            # Temperature (already in Fahrenheit)
+            temp_f = properties.get("temperature", {})
+            if isinstance(temp_f, dict):
+                weather.temperature = int(round(temp_f.get("value", 0)))
+            else:
+                weather.temperature = int(round(temp_f)) if temp_f else None
             
-            # Wind chill / Real feel (use windChill or apparentTemperature)
-            wind_chill_c = properties.get("windChill", {}).get("value")
-            if wind_chill_c is not None:
-                weather.real_feel = int(round(wind_chill_c * 9/5 + 32))
+            # Apparent temperature / Real feel (wind chill equivalent)
+            apparent_temp_f = properties.get("apparentTemperature", {})
+            if isinstance(apparent_temp_f, dict):
+                weather.real_feel = int(round(apparent_temp_f.get("value", 0)))
+            else:
+                weather.real_feel = int(round(apparent_temp_f)) if apparent_temp_f else None
             
-            # Weather condition from shortForecast
-            short_forecast = properties.get("shortForecast", "Unknown")
-            weather.condition = short_forecast.split(",")[0].strip()  # Get first part
+            # If no apparent temp, use wind chill
+            if not weather.real_feel:
+                wind_chill_f = properties.get("windChill", {})
+                if isinstance(wind_chill_f, dict):
+                    weather.real_feel = int(round(wind_chill_f.get("value", 0)))
+                else:
+                    weather.real_feel = int(round(wind_chill_f)) if wind_chill_f else None
             
-            # Try to get forecast for high/low temps
-            forecast_url = properties.get("forecast")
-            if forecast_url:
+            # Weather condition from weatherSummary
+            weather_summary = properties.get("weatherSummary", "Unknown")
+            if weather_summary and weather_summary != "Unknown":
+                weather.condition = weather_summary
+            else:
+                # Try shortForecast instead
+                short_forecast = properties.get("shortForecast", "Unknown")
+                if short_forecast and short_forecast != "Unknown":
+                    weather.condition = short_forecast.split(",")[0].strip()
+                else:
+                    weather.condition = "Unknown"
+            
+            logger.info(f"Grid data - Temp: {weather.temperature}°F, RF: {weather.real_feel}°F, Condition: {weather.condition}")
+            
+            # Fetch forecast for high/low temps
+            try:
                 forecast_response = requests.get(
-                    forecast_url,
+                    self.forecast_url,
                     timeout=10,
                     headers={"User-Agent": "MTA-Display (https://github.com)"}
                 )
                 forecast_response.raise_for_status()
                 forecast_data = forecast_response.json()
                 
-                # Get today's forecast (first two periods = day and night)
+                # Get today's forecast periods
                 periods = forecast_data.get("properties", {}).get("periods", [])
-                if len(periods) >= 2:
-                    # Find daytime forecast
-                    for period in periods:
-                        if period.get("isDaytime"):
-                            temp = period.get("temperature")
-                            if temp and not weather.high_temp:
-                                weather.high_temp = temp
-                        else:
-                            temp = period.get("temperature")
-                            if temp and not weather.low_temp:
-                                weather.low_temp = temp
+                
+                if periods:
+                    # First period should be current/today
+                    today_period = periods[0]
                     
-                    # If we got both, we're done
-                    if weather.high_temp and weather.low_temp:
-                        pass
-            
-            # Fallback: if no forecast, use current temp ±5
-            if not weather.high_temp and weather.temperature:
-                weather.high_temp = weather.temperature + 2
-            if not weather.low_temp and weather.temperature:
-                weather.low_temp = weather.temperature - 3
+                    # Get temperature from first period
+                    if not weather.high_temp:
+                        weather.high_temp = today_period.get("temperature")
+                    
+                    # Look for tonight's low
+                    if len(periods) > 1:
+                        tonight_period = periods[1]
+                        if not weather.real_feel and tonight_period.get("isDaytime") == False:
+                            # Use tonight's low as reference for real feel
+                            pass
+                    
+                    # If we got high, try to infer low
+                    if weather.high_temp and not weather.low_temp:
+                        # Look through periods for different temperature (typically night)
+                        for period in periods:
+                            temp = period.get("temperature")
+                            if temp and temp != weather.high_temp:
+                                weather.low_temp = temp
+                                break
+                    
+                    # Fallback if we only got one high temp
+                    if weather.high_temp and not weather.low_temp:
+                        weather.low_temp = max(weather.high_temp - 8, 32)  # Assume 8° drop, min 32°F
+                
+                logger.info(f"Forecast - High: {weather.high_temp}°F, Low: {weather.low_temp}°F")
+                
+            except Exception as e:
+                logger.warning(f"Could not fetch forecast: {e}")
+                # Use current temp ±5 as fallback
+                if weather.temperature:
+                    if not weather.high_temp:
+                        weather.high_temp = weather.temperature + 2
+                    if not weather.low_temp:
+                        weather.low_temp = weather.temperature - 6
             
             logger.info(
-                f"Weather fetched - Temp: {weather.temperature}°F, "
-                f"Condition: {weather.condition}, "
+                f"Weather complete - Temp: {weather.temperature}°F, "
+                f"RF: {weather.real_feel}°F, Condition: {weather.condition}, "
                 f"High: {weather.high_temp}°F, Low: {weather.low_temp}°F"
             )
             
@@ -123,7 +164,7 @@ class WeatherClient:
             logger.error(f"Failed to fetch weather: {e}")
             return None
         except Exception as e:
-            logger.error(f"Error parsing weather data: {e}")
+            logger.error(f"Error parsing weather data: {e}", exc_info=True)
             return None
     
     def get_weather_icon_code(self, condition_str):
@@ -136,23 +177,27 @@ class WeatherClient:
         Returns:
             Icon code for rendering
         """
-        condition = condition_str.lower() if condition_str else ""
+        if not condition_str:
+            return "unknown"
+            
+        condition = condition_str.lower()
         
+        # Check for each condition type
         if "sunny" in condition or "clear" in condition:
             return "sunny"
-        elif "cloudy" in condition or "overcast" in condition:
+        elif "partly cloudy" in condition or "partly sunny" in condition:
+            return "partly_cloudy"
+        elif "cloudy" in condition or "overcast" in condition or "mostly cloudy" in condition:
             return "cloudy"
-        elif "rain" in condition or "wet" in condition:
+        elif "rain" in condition or "precipitation" in condition:
             return "rainy"
-        elif "snow" in condition or "flurries" in condition:
+        elif "snow" in condition or "flurries" in condition or "sleet" in condition:
             return "snowy"
-        elif "thunder" in condition:
+        elif "thunder" in condition or "storm" in condition:
             return "stormy"
         elif "fog" in condition or "mist" in condition:
             return "foggy"
-        elif "wind" in condition:
+        elif "wind" in condition or "breezy" in condition:
             return "windy"
-        elif "partly" in condition:
-            return "partly_cloudy"
         else:
             return "unknown"

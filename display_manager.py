@@ -648,13 +648,16 @@ class DisplayManager:
                 return
             
             # LEFT THIRD: Weather icon (x=0 to x=20)
-            icon_x_start = 2
             icon_x_center = 10
             icon_y_center = 15
             
             # Get weather condition and icon type
             condition = weather_data.condition if weather_data.condition else "Unknown"
-            icon_code = self.weather_client.get_weather_icon_code(condition) if hasattr(self, 'weather_client') else self._get_icon_code(condition)
+            
+            # Get icon code using the improved method
+            icon_code = self._get_icon_code(condition)
+            
+            logger.debug(f"Weather condition: '{condition}' -> icon: '{icon_code}'")
             
             # Draw weather icon (simple pixel art)
             self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
@@ -663,7 +666,6 @@ class DisplayManager:
             info_x = 22
             row_height = 7
             font_small = self.fonts['badge']
-            font_medium = self.fonts['dest']
             
             # Row 1: Date (e.g., "Fri, Jan 2 2026")
             y_row1 = 2
@@ -672,15 +674,16 @@ class DisplayManager:
             
             # Row 2: Weather condition (e.g., "Sunny")
             y_row2 = y_row1 + row_height
-            cond_text = condition[:15]  # Truncate if needed
+            cond_text = condition[:15] if condition else "Unknown"  # Truncate if needed
             draw.text((info_x, y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
             
             # Row 3: Current temp and real feel (e.g., "62°F (RF: 57°F)")
             y_row3 = y_row2 + row_height
-            if weather_data.temperature and weather_data.real_feel:
-                temp_text = f"{weather_data.temperature}°F (RF: {weather_data.real_feel}°F)"
-            elif weather_data.temperature:
-                temp_text = f"{weather_data.temperature}°F"
+            if weather_data.temperature is not None:
+                if weather_data.real_feel is not None:
+                    temp_text = f"{weather_data.temperature}°F (RF: {weather_data.real_feel}°F)"
+                else:
+                    temp_text = f"{weather_data.temperature}°F"
             else:
                 temp_text = "-- °F"
             
@@ -692,7 +695,7 @@ class DisplayManager:
             
             # Row 4: High and Low temps (e.g., "H: 68° L: 52°")
             y_row4 = y_row3 + row_height
-            if weather_data.high_temp and weather_data.low_temp:
+            if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
             else:
                 hi_lo_text = "No forecast"
@@ -785,6 +788,60 @@ class DisplayManager:
 
 
     def _get_icon_code(self, condition_str):
+        """
+        Get weather icon code based on condition string
+        Improved matching for NOAA API outputs
+        
+        Args:
+            condition_str: Weather condition string (e.g., from NOAA API)
+            
+        Returns:
+            Icon code (sunny, cloudy, rainy, snowy, stormy, foggy, windy, partly_cloudy, unknown)
+        """
+        if not condition_str:
+            return "unknown"
+        
+        condition = condition_str.lower().strip()
+        
+        logger.debug(f"Parsing weather condition: '{condition}'")
+        
+        # Check for each condition type (order matters - most specific first)
+        
+        # Thunderstorm/Storm - highest priority
+        if "thunder" in condition or "storm" in condition or "tornado" in condition or "lightning" in condition:
+            return "stormy"
+        
+        # Snow/Sleet/Winter
+        if "snow" in condition or "sleet" in condition or "blizzard" in condition:
+            return "snowy"
+        
+        # Rain/Precipitation
+        if "rain" in condition or "shower" in condition or "drizzle" in condition or "precipitation" in condition or "wet" in condition:
+            return "rainy"
+        
+        # Partly Cloudy/Partly Sunny
+        if "partly cloudy" in condition or "partly sunny" in condition or "mostly sunny" in condition or "mostly clear" in condition:
+            return "partly_cloudy"
+        
+        # Sunny/Clear
+        if "sunny" in condition or "clear" in condition or "fair" in condition or "mostly clear" in condition:
+            return "sunny"
+        
+        # Cloudy/Overcast
+        if "cloudy" in condition or "overcast" in condition or "mostly cloudy" in condition:
+            return "cloudy"
+        
+        # Fog/Mist/Haze
+        if "fog" in condition or "mist" in condition or "haze" in condition:
+            return "foggy"
+        
+        # Wind/Breezy
+        if "wind" in condition or "breezy" in condition or "gust" in condition:
+            return "windy"
+        
+        # Default
+        logger.warning(f"Unknown weather condition: '{condition}' - using default icon")
+        return "unknown"
         """
         Get weather icon code based on condition string
         (fallback if weather_client not available)
