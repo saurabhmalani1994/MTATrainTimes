@@ -623,12 +623,16 @@ class DisplayManager:
         Left third (21 pixels): Weather icon
         Right two-thirds (43 pixels): Information in 4 rows
         
-        Row 2 (Weather Condition) now has scrolling marquee effect
+        Row 2 (Weather Condition) has dynamic scrolling marquee effect
+        All other rows and icon remain static
         
         Args:
             weather_data: WeatherData object from weather_client
         """
         try:
+            # Increment frame counter for animations
+            self.frame_count += 1
+            
             # Create image (top row unused: y=0, bottom row unused: y=31)
             # Active area: y=1 to y=30
             img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
@@ -651,7 +655,7 @@ class DisplayManager:
                     self.display_image(img)
                 return
             
-            # LEFT THIRD: Weather icon (x=0 to x=20)
+            # Weather icon parameters (static, will not move)
             icon_x_center = 10
             icon_y_center = 15
             
@@ -669,67 +673,26 @@ class DisplayManager:
             font_small = self.fonts['badge']
             
             # ============================================================================
-            # ROW 1: Date (e.g., "Fri, Jan 2 2026")
+            # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
             # ============================================================================
             y_row1 = 2
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
             # ============================================================================
-            # ROW 2: Weather condition with SCROLLING MARQUEE effect
+            # ROW 2: Weather condition with DYNAMIC SCROLLING MARQUEE
             # ============================================================================
             y_row2 = y_row1 + row_height
             cond_text = condition if condition else "Unknown"
             
-            # Calculate marquee parameters
-            text_width = draw.textbbox((0, 0), cond_text, font=font_small)[2]
-            available_width = self.DISPLAY_WIDTH - info_x  # Space to right of icon (42 pixels)
-            
-            # Only scroll if text is longer than available space
-            if text_width > available_width - 2:
-                # Text is too long - use scrolling marquee
-                
-                # Marquee animation parameters
-                marquee_speed = 1  # pixels per frame
-                marquee_pause = 30  # frames to pause at start/end
-                marquee_cycle = (text_width + available_width) * 2 + (marquee_pause * 2)
-                
-                # Get current position in animation cycle
-                cycle_pos = self.frame_count % marquee_cycle
-                
-                if cycle_pos < marquee_pause:
-                    # Paused at start
-                    scroll_offset = 0
-                elif cycle_pos < marquee_pause + (text_width + available_width):
-                    # Scrolling right to left
-                    scroll_offset = -(cycle_pos - marquee_pause) * marquee_speed
-                elif cycle_pos < (marquee_pause * 2) + (text_width + available_width):
-                    # Paused at end
-                    scroll_offset = -(text_width + available_width) * marquee_speed
-                else:
-                    # Scrolling left to right (return)
-                    scroll_offset = -(text_width + available_width) * marquee_speed + ((cycle_pos - (marquee_pause * 2) - (text_width + available_width)) * marquee_speed)
-                
-                # STEP 1: Draw scrolling condition text
-                text_x = info_x + scroll_offset
-                draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
-                
-                # STEP 2: Draw black box covering area over left third where text scrolls
-                # This prevents text from overlapping the weather icon
-                black_box_x1 = 0
-                black_box_y1 = y_row2 - 1
-                black_box_x2 = info_x - 1  # Stop just before right-aligned info area
-                black_box_y2 = y_row2 + 6
-                draw.rectangle(
-                    [black_box_x1, black_box_y1, black_box_x2, black_box_y2],
-                    fill=self.COLORS['black']
-                )
-            else:
-                # Text fits - no scrolling needed
-                draw.text((info_x, y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+            # Use same scrolling logic as train destination
+            # Step 1: Draw scrolling text
+            scroll_offset = self._calculate_scroll_offset(cond_text, info_x)
+            text_x = info_x + scroll_offset
+            draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
             
             # ============================================================================
-            # ROW 3: Current temp and real feel (e.g., "62°F (RF: 57°F)")
+            # ROW 3: Current temp and real feel (e.g., "62°F (RF: 57°F)") - STATIC
             # ============================================================================
             y_row3 = y_row2 + row_height
             if weather_data.temperature is not None:
@@ -747,7 +710,7 @@ class DisplayManager:
             draw.text((info_x, y_row3), temp_text, font=font_small, fill=self.COLORS['yellow'])
             
             # ============================================================================
-            # ROW 4: High and Low temps (e.g., "H: 68° L: 52°")
+            # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
             # ============================================================================
             y_row4 = y_row3 + row_height
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
@@ -758,7 +721,20 @@ class DisplayManager:
             draw.text((info_x, y_row4), hi_lo_text, font=font_small, fill=self.COLORS['green'])
             
             # ============================================================================
-            # DRAW WEATHER ICON LAST (on top of black box)
+            # DRAW BLACK BOX to mask scrolling text over icon area
+            # ============================================================================
+            # Black box covers left third where text scrolls
+            black_box_x1 = 0
+            black_box_y1 = y_row2 - 1
+            black_box_x2 = info_x - 1  # Stop just before right-aligned info area
+            black_box_y2 = y_row2 + 6
+            draw.rectangle(
+                [black_box_x1, black_box_y1, black_box_x2, black_box_y2],
+                fill=self.COLORS['black']
+            )
+            
+            # ============================================================================
+            # DRAW WEATHER ICON LAST (on top of black box) - COMPLETELY STATIC
             # ============================================================================
             self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
             
@@ -771,6 +747,63 @@ class DisplayManager:
         except Exception as e:
             logger.error(f"Error rendering weather: {e}", exc_info=True)
 
+    def _calculate_scroll_offset(self, text, start_x):
+        """
+        Calculate dynamic scroll offset for weather condition text
+        Uses same logic as train destination scrolling
+        
+        Args:
+            text: Text to scroll
+            start_x: Starting X position
+            
+        Returns:
+            Scroll offset in pixels (negative = scroll left)
+        """
+        try:
+            font = self.fonts['badge']
+            
+            # Calculate text width
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            
+            # Available width to the right of weather icon (from start_x to edge of screen)
+            available_width = self.DISPLAY_WIDTH - start_x
+            
+            # If text fits in available space, no scrolling
+            if text_width <= available_width:
+                return 0
+            
+            # Text is too long - calculate scroll animation
+            # Same logic as destination scrolling
+            
+            slide_distance = text_width - available_width + 4  # +4 for padding
+            pause_frames = 30  # Pause at start/end
+            slide_frames = 60  # Frames to slide across
+            cycle = (pause_frames + slide_frames) * 2  # Full cycle duration
+            
+            frame = self.frame_count % cycle
+            
+            if frame < pause_frames:
+                # Pause at start (fully visible)
+                return 0
+            elif frame < pause_frames + slide_frames:
+                # Slide right to left
+                progress = frame - pause_frames
+                offset = -int((progress / slide_frames) * slide_distance)
+                return offset
+            elif frame < (pause_frames * 2) + slide_frames:
+                # Pause at end (fully scrolled)
+                return -int(slide_distance)
+            else:
+                # Slide back left to right
+                progress = frame - ((pause_frames * 2) + slide_frames)
+                offset = -int(slide_distance) + int((progress / slide_frames) * slide_distance)
+                return offset
+                
+        except Exception as e:
+            logger.warning(f"Error calculating scroll offset: {e}")
+            return 0
+    
     def _draw_weather_icon(self, draw, icon_code, center_x, center_y):
         """
         Draw pixel-art weather icon
