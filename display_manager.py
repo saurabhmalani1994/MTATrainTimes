@@ -688,7 +688,7 @@ class DisplayManager:
             # Use same scrolling logic as train destination
             # Step 1: Draw scrolling text
             scroll_offset = self._calculate_scroll_offset_weather(cond_text, font_small, info_x)
-            text_x = info_x + scroll_offset
+            text_x = info_x - scroll_offset
             draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
             
             # ============================================================================
