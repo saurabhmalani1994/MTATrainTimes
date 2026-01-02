@@ -54,6 +54,7 @@ class DisplayManager:
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
         'weather_size': 8,    # Weather info font size
+        'weather_temp_size': 9,    # Weather info font size
     }
     
     # Sliding animation configuration
@@ -141,6 +142,7 @@ class DisplayManager:
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
                 fonts['weather'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_size'])
+                fonts['weather_temp'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_temp_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -675,7 +677,7 @@ class DisplayManager:
             # ============================================================================
             # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
             # ============================================================================
-            y_row1 = 0
+            y_row1 = -2
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((0, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
@@ -689,15 +691,17 @@ class DisplayManager:
             # Step 1: Draw scrolling text
             scroll_offset = self._calculate_scroll_offset_weather(cond_text, font_small, info_x)
             text_x = info_x - scroll_offset
-            draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+            draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['white'])
             
             # ============================================================================
             # ROW 3: Current temp and real feel (e.g., "62°F (RF: 57°F)") - STATIC
             # ============================================================================
+            font_temp = self.fonts['weather_temp']
+
             y_row3 = y_row2 + row_height
             if weather_data.temperature is not None:
                 if weather_data.real_feel is not None:
-                    temp_text = f"{weather_data.temperature}°F (RF: {weather_data.real_feel}°F)"
+                    temp_text = f"{weather_data.temperature}°F ({weather_data.real_feel}°F)"
                 else:
                     temp_text = f"{weather_data.temperature}°F"
             else:
@@ -707,7 +711,7 @@ class DisplayManager:
             if len(temp_text) > 20:
                 temp_text = f"{weather_data.temperature}°"
             
-            draw.text((info_x, y_row3), temp_text, font=font_small, fill=self.COLORS['yellow'])
+            draw.text((info_x, y_row3), temp_text, font=font_temp, fill=self.COLORS['red'])
             
             # ============================================================================
             # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
@@ -718,7 +722,7 @@ class DisplayManager:
             else:
                 hi_lo_text = "No forecast"
             
-            draw.text((info_x, y_row4), hi_lo_text, font=font_small, fill=self.COLORS['green'])
+            draw.text((info_x, y_row4), hi_lo_text, font=font_temp, fill=self.COLORS['yellow'])
             
             # ============================================================================
             # DRAW BLACK BOX to mask scrolling text over icon area
