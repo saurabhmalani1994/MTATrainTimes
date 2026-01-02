@@ -747,55 +747,63 @@ class DisplayManager:
         except Exception as e:
             logger.error(f"Error rendering weather: {e}", exc_info=True)
 
-    def _calculate_scroll_offset(self, text, start_x):
+    def _calculate_scroll_offset_weather(self, text, font, start_x):
         """
         Calculate dynamic scroll offset for weather condition text
         Uses same logic as train destination scrolling
         
+        Smooth per-frame updates with pauses at start/end positions
+        
         Args:
             text: Text to scroll
-            start_x: Starting X position
+            font: Font object for text measurement
+            start_x: Starting X position (right side, x=22)
             
         Returns:
             Scroll offset in pixels (negative = scroll left)
         """
         try:
-            font = self.fonts['badge']
-            
-            # Calculate text width
-            bbox = draw.textbbox((0, 0), text, font=font)
+            # Calculate text width using same pattern as train destination scrolling
+            # Create a dummy image and draw to measure text
+            bbox = ImageDraw.Draw(Image.new('RGB', (1, 1))).textbbox(
+                (0, 0), text, font=font
+            )
             text_width = bbox[2] - bbox[0]
             
-            # Available width to the right of weather icon (from start_x to edge of screen)
+            # Available width from start_x to right edge of screen
             available_width = self.DISPLAY_WIDTH - start_x
             
-            # If text fits in available space, no scrolling
-            if text_width <= available_width:
+            # If text fits in available space, no scrolling needed
+            if text_width <= available_width - 2:
                 return 0
             
             # Text is too long - calculate scroll animation
-            # Same logic as destination scrolling
+            # Same logic as destination scrolling for smooth continuous motion
             
             slide_distance = text_width - available_width + 4  # +4 for padding
-            pause_frames = 30  # Pause at start/end
-            slide_frames = 60  # Frames to slide across
-            cycle = (pause_frames + slide_frames) * 2  # Full cycle duration
+            pause_frames = 30  # Frames to pause at each position (at 30 FPS = 1 second)
+            slide_frames = 60  # Frames to slide across the full distance
+            cycle = (pause_frames + slide_frames) * 2  # Full animation cycle
             
+            # Get current frame in the animation cycle
             frame = self.frame_count % cycle
             
             if frame < pause_frames:
-                # Pause at start (fully visible)
+                # Pause at start position (text fully visible)
                 return 0
+                
             elif frame < pause_frames + slide_frames:
-                # Slide right to left
+                # Scroll right to left (text exits left)
                 progress = frame - pause_frames
                 offset = -int((progress / slide_frames) * slide_distance)
                 return offset
+                
             elif frame < (pause_frames * 2) + slide_frames:
-                # Pause at end (fully scrolled)
+                # Pause at end position (text fully hidden)
                 return -int(slide_distance)
+                
             else:
-                # Slide back left to right
+                # Scroll back left to right (return to start)
                 progress = frame - ((pause_frames * 2) + slide_frames)
                 offset = -int(slide_distance) + int((progress / slide_frames) * slide_distance)
                 return offset
@@ -803,7 +811,7 @@ class DisplayManager:
         except Exception as e:
             logger.warning(f"Error calculating scroll offset: {e}")
             return 0
-    
+     
     def _draw_weather_icon(self, draw, icon_code, center_x, center_y):
         """
         Draw pixel-art weather icon
