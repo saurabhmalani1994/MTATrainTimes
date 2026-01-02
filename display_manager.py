@@ -54,7 +54,7 @@ class DisplayManager:
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
         'weather_size': 8,    # Weather info font size
-        'weather_temp_size': 9,    # Weather info font size
+        'weather_temp_size': 10,    # Weather info font size
     }
     
     # Sliding animation configuration
@@ -698,7 +698,7 @@ class DisplayManager:
             # ============================================================================
             font_temp = self.fonts['weather_temp']
 
-            y_row3 = y_row2 + row_height
+            y_row3 = y_row2 + row_height+1
             if weather_data.temperature is not None:
                 if weather_data.real_feel is not None:
                     temp_text = f"{weather_data.temperature}°F ({weather_data.real_feel}°F)"
@@ -711,18 +711,18 @@ class DisplayManager:
             if len(temp_text) > 20:
                 temp_text = f"{weather_data.temperature}°"
             
-            draw.text((info_x, y_row3), temp_text, font=font_temp, fill=self.COLORS['red'])
+            draw.text((info_x, y_row3), temp_text, font=font_temp, fill=self.COLORS['yellow'])
             
             # ============================================================================
             # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
             # ============================================================================
-            y_row4 = y_row3 + row_height
+            y_row4 = y_row3 + row_height+2
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
             else:
                 hi_lo_text = "No forecast"
             
-            draw.text((info_x, y_row4), hi_lo_text, font=font_temp, fill=self.COLORS['yellow'])
+            draw.text((info_x, y_row4), hi_lo_text, font=font_temp, fill=self.COLORS['white'])
             
             # ============================================================================
             # DRAW BLACK BOX to mask scrolling text over icon area
