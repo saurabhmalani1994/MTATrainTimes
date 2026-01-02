@@ -70,7 +70,7 @@ class DisplayManager:
     }
 
     # Temperature cycling configuration
-    TEMP_CYCLE_FRAMES = 90  # 90 frames = 3 seconds at 30 FPS
+    TEMP_CYCLE_FRAMES = 300  # 90 frames = 3 seconds at 30 FPS
     # Phase 1 (0-29): Fahrenheit (33%)
     # Phase 2 (30-59): Celsius (34%)
     # Phase 3 (60-89): Fahrenheit (33%)
@@ -650,13 +650,11 @@ class DisplayManager:
         Returns:
             True if we should show Celsius, False for Fahrenheit
         """
-        # frame = self.frame_count % self.TEMP_CYCLE_FRAMES
-        frame = self.frame_count % self.SLIDE_CONFIG['cycle_duration']
-        frame_perc = (frame / self.SLIDE_CONFIG['cycle_duration']) * 100
+        frame = self.frame_count % self.TEMP_CYCLE_FRAMES
         # Frames 0-29: Fahrenheit (phase 1)
         # Frames 30-59: Celsius (phase 2)
         # Frames 60-89: Fahrenheit (phase 3)
-        return 33 <= frame_perc < 66
+        return 33 <= frame/self.TEMP_CYCLE_FRAMES * 100 < 66
 
     def render_weather(self, weather_data):
         """
