@@ -650,11 +650,13 @@ class DisplayManager:
         Returns:
             True if we should show Celsius, False for Fahrenheit
         """
-        frame = self.frame_count % self.TEMP_CYCLE_FRAMES
+        # frame = self.frame_count % self.TEMP_CYCLE_FRAMES
+        frame = self.frame_count % self.SLIDE_CONFIG['cycle_duration']
+        frame_perc = (frame / self.SLIDE_CONFIG['cycle_duration']) * 100
         # Frames 0-29: Fahrenheit (phase 1)
         # Frames 30-59: Celsius (phase 2)
         # Frames 60-89: Fahrenheit (phase 3)
-        return 30 <= frame < 60
+        return 33 <= frame_perc < 66
 
     def render_weather(self, weather_data):
         """
