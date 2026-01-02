@@ -665,7 +665,7 @@ class DisplayManager:
             self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
             
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
-            info_x = 18
+            info_x = 14
             row_height = 7
             font_small = self.fonts['weather']
             
