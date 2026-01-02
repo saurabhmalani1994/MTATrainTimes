@@ -670,7 +670,7 @@ class DisplayManager:
             font_small = self.fonts['weather']
             
             # Row 1: Date (e.g., "Fri, Jan 2 2026")
-            y_row1 = 1
+            y_row1 = 0
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
