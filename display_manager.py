@@ -48,7 +48,7 @@ class DisplayManager:
     
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
-        'header_size': 9,      # Header font size
+        'header_size': 8,      # Header font size
         'badge_size': 9,       # Train badge font size
         'dest_size': 9,        # Destination font size
         'time_size': 10,        # Time font size
@@ -296,7 +296,7 @@ class DisplayManager:
             
             # Center horizontally, position 2 pixels higher (use y=0)
             x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
-            y_pos = -2  # 2 pixels higher than default centered position
+            y_pos = -1  # 2 pixels higher than default centered position
             
             # Draw text
             draw.text(
