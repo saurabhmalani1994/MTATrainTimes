@@ -789,8 +789,7 @@ class DisplayManager:
 
     def _get_icon_code(self, condition_str):
         """
-        Get weather icon code based on condition string
-        Improved matching for NOAA API outputs
+        Get weather icon code based on condition string from NOAA shortForecast
         
         Args:
             condition_str: Weather condition string (e.g., from NOAA API)
@@ -812,19 +811,19 @@ class DisplayManager:
             return "stormy"
         
         # Snow/Sleet/Winter
-        if "snow" in condition or "sleet" in condition or "blizzard" in condition:
+        if "snow" in condition or "sleet" in condition or "blizzard" in condition or "flurries" in condition:
             return "snowy"
         
         # Rain/Precipitation
         if "rain" in condition or "shower" in condition or "drizzle" in condition or "precipitation" in condition or "wet" in condition:
             return "rainy"
         
-        # Partly Cloudy/Partly Sunny
-        if "partly cloudy" in condition or "partly sunny" in condition or "mostly sunny" in condition or "mostly clear" in condition:
+        # Partly Cloudy/Partly Sunny (must come before "sunny" and "cloudy")
+        if "partly cloudy" in condition or "partly sunny" in condition or "mostly sunny" in condition:
             return "partly_cloudy"
         
         # Sunny/Clear
-        if "sunny" in condition or "clear" in condition or "fair" in condition or "mostly clear" in condition:
+        if "sunny" in condition or "clear" in condition or "fair" in condition:
             return "sunny"
         
         # Cloudy/Overcast
@@ -842,33 +841,3 @@ class DisplayManager:
         # Default
         logger.warning(f"Unknown weather condition: '{condition}' - using default icon")
         return "unknown"
-        """
-        Get weather icon code based on condition string
-        (fallback if weather_client not available)
-        
-        Args:
-            condition_str: Weather condition string
-            
-        Returns:
-            Icon code
-        """
-        condition = condition_str.lower() if condition_str else ""
-        
-        if "sunny" in condition or "clear" in condition:
-            return "sunny"
-        elif "cloudy" in condition or "overcast" in condition:
-            return "cloudy"
-        elif "rain" in condition or "wet" in condition:
-            return "rainy"
-        elif "snow" in condition or "flurries" in condition:
-            return "snowy"
-        elif "thunder" in condition:
-            return "stormy"
-        elif "fog" in condition or "mist" in condition:
-            return "foggy"
-        elif "wind" in condition:
-            return "windy"
-        elif "partly" in condition:
-            return "partly_cloudy"
-        else:
-            return "unknown"
