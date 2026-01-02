@@ -70,7 +70,7 @@ class DisplayManager:
     }
 
     # Temperature cycling configuration
-    TEMP_CYCLE_FRAMES = 90  # 90 frames = 3 seconds at 30 FPS
+    TEMP_CYCLE_FRAMES = 120  # 90 frames = 3 seconds at 30 FPS
     # Phase 1 (0-29): Fahrenheit (33%)
     # Phase 2 (30-59): Celsius (34%)
     # Phase 3 (60-89): Fahrenheit (33%)
