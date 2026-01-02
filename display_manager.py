@@ -140,7 +140,7 @@ class DisplayManager:
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
-                fonts['weather'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['weather_size'])
+                fonts['weather'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
