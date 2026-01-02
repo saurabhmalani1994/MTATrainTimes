@@ -53,7 +53,7 @@ class DisplayManager:
         'dest_size': 9,        # Destination font size
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
-        'weather_size': 7,    # Weather info font size
+        'weather_size': 8,    # Weather info font size
     }
     
     # Sliding animation configuration
@@ -140,7 +140,7 @@ class DisplayManager:
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
-                fonts['weather'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['weather_size'])
+                fonts['weather'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
