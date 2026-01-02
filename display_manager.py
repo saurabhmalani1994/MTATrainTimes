@@ -670,7 +670,7 @@ class DisplayManager:
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
             info_x = 15
             row_height = 7
-            font_small = self.fonts['badge']
+            font_small = self.fonts['weather']
             
             # ============================================================================
             # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
@@ -725,7 +725,7 @@ class DisplayManager:
             # ============================================================================
             # Black box covers left third where text scrolls
             black_box_x1 = 0
-            black_box_y1 = y_row2 - 1
+            black_box_y1 = y_row2 + 2
             black_box_x2 = info_x - 1  # Stop just before right-aligned info area
             black_box_y2 = y_row2 + 10
             draw.rectangle(
