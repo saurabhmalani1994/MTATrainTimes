@@ -711,7 +711,7 @@ class DisplayManager:
             # ============================================================================
             font_temp = self.fonts['weather_temp']
 
-            y_row3 = y_row2 + row_height
+            y_row3 = y_row2 + row_height+1
             if weather_data.temperature is not None:
                 if weather_data.real_feel is not None:
                     temp_text = f"{weather_data.temperature}°F ({weather_data.real_feel}°F)"
@@ -729,7 +729,7 @@ class DisplayManager:
             # ============================================================================
             # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
             # ============================================================================
-            y_row4 = y_row3 + row_height
+            y_row4 = y_row3 + row_height+2
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
             else:
@@ -742,7 +742,7 @@ class DisplayManager:
             # ============================================================================
             # Black box covers left third where text scrolls
             black_box_x1 = 0
-            black_box_y1 = y_row2 + 2
+            black_box_y1 = y_row2 + 1
             black_box_x2 = info_x - 1  # Stop just before right-aligned info area
             black_box_y2 = y_row2 + 10
             draw.rectangle(
