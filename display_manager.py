@@ -54,7 +54,7 @@ class DisplayManager:
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
         'weather_size': 8,    # Weather info font size
-        'weather_temp_size': 10,    # Weather info font size
+        'weather_temp_size': 9,    # Weather info font size
     }
     
     # Sliding animation configuration
