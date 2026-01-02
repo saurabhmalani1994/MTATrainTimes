@@ -40,11 +40,11 @@ class MainDisplay:
             direction: 'northbound' or 'southbound'
             
         Returns:
-            List of Train objects
+            List of Train objects, or empty list if none available
         """
         # TODO: Replace with actual MTA API calls
-        # For now, return mock data
-        pass
+        # For now, return empty list instead of None
+        return []
     
     def run(self):
         """
@@ -61,19 +61,26 @@ class MainDisplay:
                     logger.info(f"Switching to frame {self.current_frame} (0=north, 1=south, 2=nyan)")
                 
                 # Render current frame
-                if self.current_frame == 0:
-                    # Northbound trains
-                    trains = self.get_trains_for_direction('northbound')
-                    self.display_manager.render_frame('northbound', trains)
-                    
-                elif self.current_frame == 1:
-                    # Southbound trains
-                    trains = self.get_trains_for_direction('southbound')
-                    self.display_manager.render_frame('southbound', trains)
-                    
-                elif self.current_frame == 2:
-                    # Nyan Cat animation
-                    self.display_manager.render_nyan_cat_frame()
+                try:
+                    if self.current_frame == 0:
+                        # Northbound trains
+                        trains = self.get_trains_for_direction('northbound')
+                        if trains is None:
+                            trains = []
+                        self.display_manager.render_frame('northbound', trains)
+                        
+                    elif self.current_frame == 1:
+                        # Southbound trains
+                        trains = self.get_trains_for_direction('southbound')
+                        if trains is None:
+                            trains = []
+                        self.display_manager.render_frame('southbound', trains)
+                        
+                    elif self.current_frame == 2:
+                        # Nyan Cat animation
+                        self.display_manager.render_nyan_cat_frame()
+                except Exception as e:
+                    logger.error(f"Error rendering frame {self.current_frame}: {e}", exc_info=True)
                 
                 # Frame rate control (30 FPS)
                 time.sleep(0.033)
@@ -109,7 +116,8 @@ class MainDisplayAdvanced:
     def get_trains_for_direction(self, direction):
         """Get trains for the given direction"""
         # TODO: Replace with actual MTA API calls
-        pass
+        # Return empty list instead of None
+        return []
     
     def run(self):
         """Main display loop with per-frame durations"""
@@ -126,16 +134,23 @@ class MainDisplayAdvanced:
                     logger.info(f"Switching to frame: {self.frame_names[self.current_frame]}")
                 
                 # Render current frame
-                if self.current_frame == 0:
-                    trains = self.get_trains_for_direction('northbound')
-                    self.display_manager.render_frame('northbound', trains)
-                    
-                elif self.current_frame == 1:
-                    trains = self.get_trains_for_direction('southbound')
-                    self.display_manager.render_frame('southbound', trains)
-                    
-                elif self.current_frame == 2:
-                    self.display_manager.render_nyan_cat_frame()
+                try:
+                    if self.current_frame == 0:
+                        trains = self.get_trains_for_direction('northbound')
+                        if trains is None:
+                            trains = []
+                        self.display_manager.render_frame('northbound', trains)
+                        
+                    elif self.current_frame == 1:
+                        trains = self.get_trains_for_direction('southbound')
+                        if trains is None:
+                            trains = []
+                        self.display_manager.render_frame('southbound', trains)
+                        
+                    elif self.current_frame == 2:
+                        self.display_manager.render_nyan_cat_frame()
+                except Exception as e:
+                    logger.error(f"Error rendering frame {self.current_frame}: {e}", exc_info=True)
                 
                 # Frame rate control (30 FPS)
                 time.sleep(0.033)
