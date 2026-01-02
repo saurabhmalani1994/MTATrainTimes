@@ -14,7 +14,7 @@ All with equal display duration.
 import logging
 import time
 from display_manager import DisplayManager
-from mtaclient import MTAClient
+from mta_client import MTAClient
 from config import Config
 
 logger = logging.getLogger(__name__)
