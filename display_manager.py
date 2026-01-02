@@ -140,7 +140,7 @@ class DisplayManager:
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
-                fonts['weather'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_size'])
+                fonts['weather'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['weather_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -289,7 +289,7 @@ class DisplayManager:
             font = self.fonts['header']
             
             # Full direction text
-            direction_text = "NORTHBOUND" if direction == 'northbound' else "SOUTHBOUND"
+            direction_text = "NORTH BOUND" if direction == 'northbound' else "SOUTH BOUND"
             
             # Get text dimensions
             bbox = draw.textbbox((0, 0), direction_text, font=font)
