@@ -623,6 +623,8 @@ class DisplayManager:
         Left third (21 pixels): Weather icon
         Right two-thirds (43 pixels): Information in 4 rows
         
+        Row 2 (Weather Condition) now has scrolling marquee effect
+        
         Args:
             weather_data: WeatherData object from weather_client
         """
@@ -635,7 +637,7 @@ class DisplayManager:
             # Safety check
             if weather_data is None:
                 # Show "No Data" message
-                font = self.fonts['weather']
+                font = self.fonts['dest']
                 text = "Weather Unavailable"
                 bbox = draw.textbbox((0, 0), text, font=font)
                 text_width = bbox[2] - bbox[0]
@@ -650,7 +652,7 @@ class DisplayManager:
                 return
             
             # LEFT THIRD: Weather icon (x=0 to x=20)
-            icon_x_center = 6
+            icon_x_center = 10
             icon_y_center = 15
             
             # Get weather condition and icon type
@@ -661,25 +663,74 @@ class DisplayManager:
             
             logger.debug(f"Weather condition: '{condition}' -> icon: '{icon_code}'")
             
-            # Draw weather icon (simple pixel art)
-            self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
-            
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
-            info_x = 14
+            info_x = 22
             row_height = 7
-            font_small = self.fonts['weather']
+            font_small = self.fonts['badge']
             
-            # Row 1: Date (e.g., "Fri, Jan 2 2026")
-            y_row1 = 0
+            # ============================================================================
+            # ROW 1: Date (e.g., "Fri, Jan 2 2026")
+            # ============================================================================
+            y_row1 = 2
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
-            # Row 2: Weather condition (e.g., "Sunny")
+            # ============================================================================
+            # ROW 2: Weather condition with SCROLLING MARQUEE effect
+            # ============================================================================
             y_row2 = y_row1 + row_height
-            cond_text = condition[:15] if condition else "Unknown"  # Truncate if needed
-            draw.text((info_x, y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+            cond_text = condition if condition else "Unknown"
             
-            # Row 3: Current temp and real feel (e.g., "62°F (RF: 57°F)")
+            # Calculate marquee parameters
+            text_width = draw.textbbox((0, 0), cond_text, font=font_small)[2]
+            available_width = self.DISPLAY_WIDTH - info_x  # Space to right of icon (42 pixels)
+            
+            # Only scroll if text is longer than available space
+            if text_width > available_width - 2:
+                # Text is too long - use scrolling marquee
+                
+                # Marquee animation parameters
+                marquee_speed = 1  # pixels per frame
+                marquee_pause = 30  # frames to pause at start/end
+                marquee_cycle = (text_width + available_width) * 2 + (marquee_pause * 2)
+                
+                # Get current position in animation cycle
+                cycle_pos = self.frame_count % marquee_cycle
+                
+                if cycle_pos < marquee_pause:
+                    # Paused at start
+                    scroll_offset = 0
+                elif cycle_pos < marquee_pause + (text_width + available_width):
+                    # Scrolling right to left
+                    scroll_offset = -(cycle_pos - marquee_pause) * marquee_speed
+                elif cycle_pos < (marquee_pause * 2) + (text_width + available_width):
+                    # Paused at end
+                    scroll_offset = -(text_width + available_width) * marquee_speed
+                else:
+                    # Scrolling left to right (return)
+                    scroll_offset = -(text_width + available_width) * marquee_speed + ((cycle_pos - (marquee_pause * 2) - (text_width + available_width)) * marquee_speed)
+                
+                # STEP 1: Draw scrolling condition text
+                text_x = info_x + scroll_offset
+                draw.text((int(text_x), y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+                
+                # STEP 2: Draw black box covering area over left third where text scrolls
+                # This prevents text from overlapping the weather icon
+                black_box_x1 = 0
+                black_box_y1 = y_row2 - 1
+                black_box_x2 = info_x - 1  # Stop just before right-aligned info area
+                black_box_y2 = y_row2 + 6
+                draw.rectangle(
+                    [black_box_x1, black_box_y1, black_box_x2, black_box_y2],
+                    fill=self.COLORS['black']
+                )
+            else:
+                # Text fits - no scrolling needed
+                draw.text((info_x, y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+            
+            # ============================================================================
+            # ROW 3: Current temp and real feel (e.g., "62°F (RF: 57°F)")
+            # ============================================================================
             y_row3 = y_row2 + row_height
             if weather_data.temperature is not None:
                 if weather_data.real_feel is not None:
@@ -695,7 +746,9 @@ class DisplayManager:
             
             draw.text((info_x, y_row3), temp_text, font=font_small, fill=self.COLORS['yellow'])
             
-            # Row 4: High and Low temps (e.g., "H: 68° L: 52°")
+            # ============================================================================
+            # ROW 4: High and Low temps (e.g., "H: 68° L: 52°")
+            # ============================================================================
             y_row4 = y_row3 + row_height
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
@@ -703,6 +756,11 @@ class DisplayManager:
                 hi_lo_text = "No forecast"
             
             draw.text((info_x, y_row4), hi_lo_text, font=font_small, fill=self.COLORS['green'])
+            
+            # ============================================================================
+            # DRAW WEATHER ICON LAST (on top of black box)
+            # ============================================================================
+            self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
             
             # Display or save
             if self.test_mode:
@@ -712,7 +770,6 @@ class DisplayManager:
                 
         except Exception as e:
             logger.error(f"Error rendering weather: {e}", exc_info=True)
-
 
     def _draw_weather_icon(self, draw, icon_code, center_x, center_y):
         """
