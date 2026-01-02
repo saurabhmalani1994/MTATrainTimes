@@ -53,7 +53,7 @@ class DisplayManager:
         'dest_size': 9,        # Destination font size
         'time_size': 10,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
-        'weather_size': 8,    # Weather info font size
+        'weather_size': 7,    # Weather info font size
     }
     
     # Sliding animation configuration
@@ -657,7 +657,7 @@ class DisplayManager:
             
             # Weather icon parameters (static, will not move)
             icon_x_center = 5
-            icon_y_center = 15
+            icon_y_center = 20
             
             # Get weather condition and icon type
             condition = weather_data.condition if weather_data.condition else "Unknown"
@@ -677,7 +677,7 @@ class DisplayManager:
             # ============================================================================
             y_row1 = 0
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
-            draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
+            draw.text((0, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
             # ============================================================================
             # ROW 2: Weather condition with DYNAMIC SCROLLING MARQUEE
