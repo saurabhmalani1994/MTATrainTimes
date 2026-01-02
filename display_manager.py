@@ -129,9 +129,12 @@ class DisplayManager:
                     break
 
         dejavu_fontfile = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        dejavu_bold_fontfile = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         nunito_fontfile = "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf"
         noto_fontfile = "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"
+        noto_bold_fontfile = "/usr/share/fonts/truetype/noto/NotoSansMono-Bold.ttf"
         liberation_fontfile = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        liberation_bold_fontfile = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
         
         # Load fonts at different sizes
         if font_file:
@@ -142,7 +145,7 @@ class DisplayManager:
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
                 fonts['weather'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['weather_size'])
-                fonts['weather_temp'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_temp_size'])
+                fonts['weather_temp'] = ImageFont.truetype(liberation_bold_fontfile, self.FONT_CONFIG['weather_temp_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
