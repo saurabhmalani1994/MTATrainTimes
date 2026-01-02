@@ -303,76 +303,185 @@ class DisplayManager:
     
     def draw_nyan_cat(self, draw):
         """
-        Draw animated nyan cat flying across the screen
+        Draw enhanced animated nyan cat flying across the screen
+        Based on classic nyan cat with proper body, face, and flowing stars
         
         Args:
             draw: PIL ImageDraw object
         """
         try:
-            # Calculate animation position (cat flies left to right, then repeats)
+            # Calculate animation position
             num_frames = self.NYAN_CAT_CONFIG['num_frames']
             frame_duration = self.NYAN_CAT_CONFIG['frame_duration']
-            total_cycle = num_frames * frame_duration
             
             cycle_pos = (self.frame_count // frame_duration) % num_frames
+            cat_x = (self.frame_count * 1) % (self.DISPLAY_WIDTH + 20)  # Move slower, wraps around
             
-            # Cat moves across screen (0 to 64 pixels)
-            cat_x = (self.frame_count * 2) % self.DISPLAY_WIDTH
+            # Define rainbow colors for trail
+            rainbow = [
+                self.COLORS['red'],
+                self.COLORS['orange'],
+                (255, 200, 0),      # golden yellow
+                self.COLORS['green'],
+                self.COLORS['cyan'],
+                (100, 100, 255),    # light blue
+                self.COLORS['magenta'],
+            ]
             
-            # Draw rainbow trail behind cat
-            for i in range(5):
-                trail_x = cat_x - (i * 4)
-                if trail_x >= 0 and trail_x < self.DISPLAY_WIDTH:
-                    trail_colors = [self.COLORS['red'], self.COLORS['orange'], self.COLORS['yellow'], 
-                                   self.COLORS['green'], self.COLORS['cyan']]
-                    color = trail_colors[i % 5]
-                    draw.rectangle([(trail_x, 12), (trail_x + 3, 16)], fill=color)
+            # Draw rainbow star trail (classic nyan cat effect)
+            trail_spacing = 3  # pixels between stars
+            for i in range(6):
+                star_x = cat_x - (i * trail_spacing)
+                if star_x >= -5 and star_x < self.DISPLAY_WIDTH:
+                    color = rainbow[i % len(rainbow)]
+                    # Draw small star/square blocks
+                    draw.rectangle([
+                        (star_x - 2, 5 + (i % 3) * 2),
+                        (star_x + 1, 8 + (i % 3) * 2)
+                    ], fill=color)
             
-            # Draw nyan cat body (pixel art style)
-            # Cat head - light pink
-            draw.rectangle([(cat_x, 8), (cat_x + 6, 14)], fill=self.COLORS['pink'])
+            # Draw cat body (pixel-art style, ~12-14 pixels wide)
+            if cat_x >= -15 and cat_x < self.DISPLAY_WIDTH:
+                
+                # Pop-Tart body (classic nyan cat has pastry body)
+                # Draw as tan/cream colored rectangle
+                draw.rectangle([
+                    (int(cat_x), 10),
+                    (int(cat_x + 12), 22)
+                ], fill=(240, 180, 100))  # Tan pastry color
+                
+                # Frosting stripe on body (pink)
+                draw.rectangle([
+                    (int(cat_x), 15),
+                    (int(cat_x + 12), 17)
+                ], fill=self.COLORS['pink'])
+                
+                # Rainbow stripes on frosting (small colored blocks)
+                stripe_colors = rainbow
+                stripe_width = 2
+                for j, color in enumerate(stripe_colors):
+                    draw.rectangle([
+                        (int(cat_x + j * stripe_width), 15),
+                        (int(cat_x + (j + 1) * stripe_width), 16)
+                    ], fill=color)
+                
+                # Cat head (round-ish, tan)
+                # Head circle (simplified as rectangle with rounded edges)
+                head_x = int(cat_x + 8)
+                head_y = 6
+                draw.ellipse([
+                    (head_x, head_y),
+                    (head_x + 9, head_y + 8)
+                ], fill=(240, 180, 100))  # Tan
+                
+                # Ears (two triangles, filled as rectangles)
+                # Left ear
+                draw.polygon([
+                    (head_x + 1, head_y - 1),
+                    (head_x + 3, head_y),
+                    (head_x + 2, head_y - 3)
+                ], fill=self.COLORS['pink'])
+                
+                # Right ear
+                draw.polygon([
+                    (head_x + 6, head_y - 1),
+                    (head_x + 8, head_y),
+                    (head_x + 7, head_y - 3)
+                ], fill=self.COLORS['pink'])
+                
+                # Inner ear pink
+                draw.rectangle([
+                    (head_x + 2, head_y - 1),
+                    (head_x + 3, head_y + 1)
+                ], fill=(255, 150, 200))
+                
+                draw.rectangle([
+                    (head_x + 6, head_y - 1),
+                    (head_x + 7, head_y + 1)
+                ], fill=(255, 150, 200))
+                
+                # Eyes (white)
+                draw.rectangle([
+                    (head_x + 2, head_y + 2),
+                    (head_x + 3, head_y + 4)
+                ], fill=self.COLORS['white'])
+                
+                draw.rectangle([
+                    (head_x + 6, head_y + 2),
+                    (head_x + 7, head_y + 4)
+                ], fill=self.COLORS['white'])
+                
+                # Pupils (black, animated to look at something)
+                pupil_offset = cycle_pos % 2
+                draw.rectangle([
+                    (head_x + 2 + pupil_offset, head_y + 3),
+                    (head_x + 3 + pupil_offset, head_y + 4)
+                ], fill=self.COLORS['black'])
+                
+                draw.rectangle([
+                    (head_x + 6 + pupil_offset, head_y + 3),
+                    (head_x + 7 + pupil_offset, head_y + 4)
+                ], fill=self.COLORS['black'])
+                
+                # Mouth (simple horizontal line or arc, black)
+                draw.line([
+                    (head_x + 3, head_y + 6),
+                    (head_x + 6, head_y + 6)
+                ], fill=self.COLORS['black'], width=1)
+                
+                # Blush marks (pink circles)
+                draw.ellipse([
+                    (head_x + 0, head_y + 4),
+                    (head_x + 1, head_y + 5)
+                ], fill=self.COLORS['pink'])
+                
+                draw.ellipse([
+                    (head_x + 8, head_y + 4),
+                    (head_x + 9, head_y + 5)
+                ], fill=self.COLORS['pink'])
+                
+                # Animated tail (flows behind, multiple segments)
+                tail_length = 8
+                tail_y_base = 18
+                
+                # Tail segments with wave animation
+                for segment in range(tail_length):
+                    seg_x = int(cat_x - 2 - segment)
+                    # Sine-wave tail movement
+                    wave = int(2 * ((cycle_pos + segment) % 4))  # Oscillates 0-3
+                    seg_y = tail_y_base - wave + 1
+                    
+                    if seg_x >= -5 and seg_x < self.DISPLAY_WIDTH:
+                        draw.rectangle([
+                            (seg_x, seg_y),
+                            (seg_x + 1, seg_y + 3)
+                        ], fill=self.COLORS['pink'])
+                
+                # Paws (front left and right)
+                draw.rectangle([
+                    (int(cat_x), 22),
+                    (int(cat_x + 2), 24)
+                ], fill=(240, 180, 100))  # Front left paw
+                
+                draw.rectangle([
+                    (int(cat_x + 10), 22),
+                    (int(cat_x + 12), 24)
+                ], fill=(240, 180, 100))  # Front right paw
             
-            # Cat ears - light pink
-            draw.rectangle([(cat_x + 1, 6), (cat_x + 2, 8)], fill=self.COLORS['pink'])  # Left ear
-            draw.rectangle([(cat_x + 4, 6), (cat_x + 5, 8)], fill=self.COLORS['pink'])  # Right ear
-            
-            # Eyes - white
-            draw.rectangle([(cat_x + 1, 9), (cat_x + 2, 10)], fill=self.COLORS['white'])   # Left eye
-            draw.rectangle([(cat_x + 4, 9), (cat_x + 5, 10)], fill=self.COLORS['white'])   # Right eye
-            
-            # Pupils - black
-            draw.rectangle([(cat_x + 1, 9), (cat_x + 2, 10)], fill=self.COLORS['black'])
-            draw.rectangle([(cat_x + 4, 9), (cat_x + 5, 10)], fill=self.COLORS['black'])
-            
-            # Body - light pink
-            draw.rectangle([(cat_x + 7, 9), (cat_x + 13, 15)], fill=self.COLORS['pink'])
-            
-            # Paws - light pink
-            draw.rectangle([(cat_x + 7, 15), (cat_x + 8, 16)], fill=self.COLORS['pink'])     # Front left
-            draw.rectangle([(cat_x + 12, 15), (cat_x + 13, 16)], fill=self.COLORS['pink'])   # Front right
-            
-            # Animated tail (swishes based on frame)
-            tail_swing = cycle_pos % 3
-            if tail_swing == 0:
-                draw.rectangle([(cat_x + 13, 11), (cat_x + 20, 12)], fill=self.COLORS['pink'])
-            elif tail_swing == 1:
-                draw.rectangle([(cat_x + 13, 10), (cat_x + 22, 11)], fill=self.COLORS['pink'])
-            else:
-                draw.rectangle([(cat_x + 13, 12), (cat_x + 20, 13)], fill=self.COLORS['pink'])
-            
-            # Draw "NYAN CAT" text in center
+            # Draw "NYAN CAT" text at bottom
             font = self.fonts['dest']
             text = "NYAN CAT"
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             text_x = (self.DISPLAY_WIDTH - text_width) // 2
-            text_y = 22
+            text_y = 26
+            
             draw.text((text_x, text_y), text, font=font, fill=self.COLORS['cyan'])
             
         except Exception as e:
             logger.error(f"Error drawing nyan cat: {e}")
-    
+
     def draw_header(self, draw, direction):
         """
         Draw header row showing full NORTHBOUND/SOUTHBOUND text

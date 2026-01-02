@@ -14,6 +14,8 @@ All with equal display duration.
 import logging
 import time
 from display_manager import DisplayManager
+from mtaclient import MTAClient
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +29,34 @@ class MainDisplay:
         Args:
             frame_duration: Seconds to display each frame (northbound, southbound, nyan cat)
         """
+        self.config = Config()
+        self.mtaclient = MTAClient(self.config.MTA_API_KEY)
         self.display_manager = DisplayManager()
-        self.frame_duration = frame_duration  # How long to show each direction
+        self.frame_duration = frame_duration
         self.last_switch = time.time()
         self.current_frame = 0  # 0=northbound, 1=southbound, 2=nyan_cat
+        self.train_data = {'northbound': [], 'southbound': []}
+        self.last_update = 0
         
+    def fetch_train_data(self):
+        """Fetch latest train data from MTA API"""
+        try:
+            feed = self.mtaclient.get_feed(self.config.FEED_PATH)
+            if feed is None:
+                logger.warning("Failed to fetch feed data")
+                return
+            
+            self.train_data = self.mtaclient.parse_feed(
+                feed, 
+                self.config.STOP_ID, 
+                self.config.ROUTE_ID
+            )
+            self.last_update = time.time()
+            logger.info(f"Updated train data - Northbound: {len(self.train_data['northbound'])} trains, "
+                       f"Southbound: {len(self.train_data['southbound'])} trains")
+        except Exception as e:
+            logger.error(f"Error fetching train data: {e}")
+    
     def get_trains_for_direction(self, direction):
         """
         Get trains for the given direction
@@ -42,17 +67,23 @@ class MainDisplay:
         Returns:
             List of Train objects, or empty list if none available
         """
-        # TODO: Replace with actual MTA API calls
-        # For now, return empty list instead of None
-        return []
+        trains = self.train_data.get(direction, [])
+        return trains if trains is not None else []
     
     def run(self):
         """
         Main display loop - cycles between northbound, southbound, and nyan cat
         """
         try:
+            # Initial fetch
+            self.fetch_train_data()
+            
             while True:
                 current_time = time.time()
+                
+                # Refresh train data every 10 seconds
+                if current_time - self.last_update >= self.config.API_UPDATE_INTERVAL:
+                    self.fetch_train_data()
                 
                 # Switch frames every frame_duration seconds
                 if current_time - self.last_switch >= self.frame_duration:
@@ -100,6 +131,8 @@ class MainDisplayAdvanced:
     
     def __init__(self):
         """Initialize with custom durations for each frame"""
+        self.config = Config()
+        self.mtaclient = MTAClient(self.config.MTA_API_KEY)
         self.display_manager = DisplayManager()
         
         # Duration (in seconds) to show each frame
@@ -112,18 +145,46 @@ class MainDisplayAdvanced:
         self.last_switch = time.time()
         self.current_frame = 0  # 0=northbound, 1=southbound, 2=nyan_cat
         self.frame_names = ['northbound', 'southbound', 'nyan_cat']
+        self.train_data = {'northbound': [], 'southbound': []}
+        self.last_update = 0
         
+    def fetch_train_data(self):
+        """Fetch latest train data from MTA API"""
+        try:
+            feed = self.mtaclient.get_feed(self.config.FEED_PATH)
+            if feed is None:
+                logger.warning("Failed to fetch feed data")
+                return
+            
+            self.train_data = self.mtaclient.parse_feed(
+                feed,
+                self.config.STOP_ID,
+                self.config.ROUTE_ID
+            )
+            self.last_update = time.time()
+            logger.info(f"Updated train data - Northbound: {len(self.train_data['northbound'])} trains, "
+                       f"Southbound: {len(self.train_data['southbound'])} trains")
+        except Exception as e:
+            logger.error(f"Error fetching train data: {e}")
+    
     def get_trains_for_direction(self, direction):
         """Get trains for the given direction"""
-        # TODO: Replace with actual MTA API calls
-        # Return empty list instead of None
-        return []
+        trains = self.train_data.get(direction, [])
+        return trains if trains is not None else []
     
     def run(self):
         """Main display loop with per-frame durations"""
         try:
+            # Initial fetch
+            self.fetch_train_data()
+            
             while True:
                 current_time = time.time()
+                
+                # Refresh train data every 10 seconds
+                if current_time - self.last_update >= self.config.API_UPDATE_INTERVAL:
+                    self.fetch_train_data()
+                
                 current_frame_name = self.frame_names[self.current_frame]
                 frame_duration = self.frame_durations[current_frame_name]
                 
@@ -171,9 +232,9 @@ if __name__ == "__main__":
     )
     
     # Option 1: Equal duration for all frames (5 seconds each)
-    # display = MainDisplay(frame_duration=5.0)
-    # display.run()
+    display = MainDisplay(frame_duration=5.0)
+    display.run()
     
     # Option 2: Different durations for each frame
-    display = MainDisplayAdvanced()
-    display.run()
+    # display = MainDisplayAdvanced()
+    # display.run()
