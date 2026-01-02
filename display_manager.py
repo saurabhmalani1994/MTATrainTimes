@@ -614,3 +614,204 @@ class DisplayManager:
                 logger.info("Display cleared on shutdown")
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
+
+    def render_weather(self, weather_data):
+        """
+        Render weather frame (30 x 64 pixels, top/bottom rows unused)
+        Left third (21 pixels): Weather icon
+        Right two-thirds (43 pixels): Information in 4 rows
+        
+        Args:
+            weather_data: WeatherData object from weather_client
+        """
+        try:
+            # Create image (top row unused: y=0, bottom row unused: y=31)
+            # Active area: y=1 to y=30
+            img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
+            draw = ImageDraw.Draw(img)
+            
+            # Safety check
+            if weather_data is None:
+                # Show "No Data" message
+                font = self.fonts['dest']
+                text = "Weather Unavailable"
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                x = (self.DISPLAY_WIDTH - text_width) // 2
+                y = 15
+                draw.text((x, y), text, font=font, fill=self.COLORS['cyan'])
+                
+                if self.test_mode:
+                    self.save_test_image(img, "weather")
+                else:
+                    self.display_image(img)
+                return
+            
+            # LEFT THIRD: Weather icon (x=0 to x=20)
+            icon_x_start = 2
+            icon_x_center = 10
+            icon_y_center = 15
+            
+            # Get weather condition and icon type
+            condition = weather_data.condition if weather_data.condition else "Unknown"
+            icon_code = self.weather_client.get_weather_icon_code(condition) if hasattr(self, 'weather_client') else self._get_icon_code(condition)
+            
+            # Draw weather icon (simple pixel art)
+            self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
+            
+            # RIGHT TWO-THIRDS: Information (x=21 to x=63)
+            info_x = 22
+            row_height = 7
+            font_small = self.fonts['badge']
+            font_medium = self.fonts['dest']
+            
+            # Row 1: Date (e.g., "Fri, Jan 2 2026")
+            y_row1 = 2
+            date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
+            draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
+            
+            # Row 2: Weather condition (e.g., "Sunny")
+            y_row2 = y_row1 + row_height
+            cond_text = condition[:15]  # Truncate if needed
+            draw.text((info_x, y_row2), cond_text, font=font_small, fill=self.COLORS['cyan'])
+            
+            # Row 3: Current temp and real feel (e.g., "62°F (RF: 57°F)")
+            y_row3 = y_row2 + row_height
+            if weather_data.temperature and weather_data.real_feel:
+                temp_text = f"{weather_data.temperature}°F (RF: {weather_data.real_feel}°F)"
+            elif weather_data.temperature:
+                temp_text = f"{weather_data.temperature}°F"
+            else:
+                temp_text = "-- °F"
+            
+            # Truncate if too long
+            if len(temp_text) > 20:
+                temp_text = f"{weather_data.temperature}°"
+            
+            draw.text((info_x, y_row3), temp_text, font=font_small, fill=self.COLORS['yellow'])
+            
+            # Row 4: High and Low temps (e.g., "H: 68° L: 52°")
+            y_row4 = y_row3 + row_height
+            if weather_data.high_temp and weather_data.low_temp:
+                hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
+            else:
+                hi_lo_text = "No forecast"
+            
+            draw.text((info_x, y_row4), hi_lo_text, font=font_small, fill=self.COLORS['green'])
+            
+            # Display or save
+            if self.test_mode:
+                self.save_test_image(img, "weather")
+            else:
+                self.display_image(img)
+                
+        except Exception as e:
+            logger.error(f"Error rendering weather: {e}", exc_info=True)
+
+
+    def _draw_weather_icon(self, draw, icon_code, center_x, center_y):
+        """
+        Draw pixel-art weather icon
+        
+        Args:
+            draw: PIL ImageDraw object
+            icon_code: Weather type code (sunny, cloudy, rainy, etc.)
+            center_x: X coordinate of icon center
+            center_y: Y coordinate of icon center
+        """
+        try:
+            if icon_code == "sunny":
+                # Draw sun: circle with rays
+                draw.ellipse([center_x-3, center_y-3, center_x+3, center_y+3], fill=self.COLORS['yellow'])
+                # Rays
+                draw.line([center_x-5, center_y, center_x-4, center_y], fill=self.COLORS['yellow'], width=1)
+                draw.line([center_x+4, center_y, center_x+5, center_y], fill=self.COLORS['yellow'], width=1)
+                draw.line([center_x, center_y-5, center_x, center_y-4], fill=self.COLORS['yellow'], width=1)
+                draw.line([center_x, center_y+4, center_x, center_y+5], fill=self.COLORS['yellow'], width=1)
+                
+            elif icon_code == "cloudy":
+                # Draw cloud
+                draw.ellipse([center_x-5, center_y-2, center_x-1, center_y+2], fill=self.COLORS['gray'])
+                draw.ellipse([center_x-2, center_y-3, center_x+3, center_y+1], fill=self.COLORS['gray'])
+                draw.ellipse([center_x+1, center_y-2, center_x+6, center_y+2], fill=self.COLORS['gray'])
+                
+            elif icon_code == "partly_cloudy":
+                # Sun partially behind cloud
+                draw.ellipse([center_x-2, center_y-2, center_x+1, center_y+1], fill=self.COLORS['yellow'])
+                draw.ellipse([center_x, center_y-1, center_x+5, center_y+2], fill=self.COLORS['gray'])
+                
+            elif icon_code == "rainy":
+                # Cloud with rain drops
+                draw.ellipse([center_x-4, center_y-3, center_x+2, center_y], fill=self.COLORS['gray'])
+                # Rain drops
+                draw.line([center_x-4, center_y+1, center_x-3, center_y+3], fill=self.COLORS['cyan'], width=1)
+                draw.line([center_x-1, center_y+1, center_x, center_y+3], fill=self.COLORS['cyan'], width=1)
+                draw.line([center_x+2, center_y+1, center_x+3, center_y+3], fill=self.COLORS['cyan'], width=1)
+                
+            elif icon_code == "snowy":
+                # Cloud with snowflakes
+                draw.ellipse([center_x-4, center_y-3, center_x+2, center_y], fill=self.COLORS['white'])
+                # Snowflakes (asterisk shapes)
+                draw.line([center_x-3, center_y+1, center_x-2, center_y+3], fill=self.COLORS['cyan'], width=1)
+                draw.line([center_x, center_y+1, center_x+1, center_y+3], fill=self.COLORS['cyan'], width=1)
+                draw.line([center_x+3, center_y+1, center_x+4, center_y+3], fill=self.COLORS['cyan'], width=1)
+                
+            elif icon_code == "stormy":
+                # Dark cloud with lightning
+                draw.ellipse([center_x-4, center_y-3, center_x+2, center_y], fill=self.COLORS['gray'])
+                # Lightning bolt (zigzag)
+                draw.line([center_x+1, center_y+1, center_x+2, center_y+2], fill=self.COLORS['yellow'], width=1)
+                draw.line([center_x+2, center_y+2, center_x+1, center_y+3], fill=self.COLORS['yellow'], width=1)
+                draw.line([center_x+1, center_y+3, center_x+2, center_y+4], fill=self.COLORS['yellow'], width=1)
+                
+            elif icon_code == "foggy":
+                # Horizontal lines (fog)
+                for offset in [-3, 0, 3]:
+                    draw.line([center_x-4, center_y+offset, center_x+4, center_y+offset], 
+                            fill=self.COLORS['gray'], width=1)
+                
+            elif icon_code == "windy":
+                # Curved lines (wind)
+                draw.arc([center_x-3, center_y-2, center_x+3, center_y+2], 0, 180, fill=self.COLORS['cyan'], width=1)
+                draw.arc([center_x-4, center_y-4, center_x+2, center_y], 0, 180, fill=self.COLORS['cyan'], width=1)
+                
+            else:  # unknown
+                # Question mark or generic icon
+                draw.ellipse([center_x-3, center_y-3, center_x+3, center_y+3], fill=self.COLORS['gray'])
+                draw.text((center_x-2, center_y-3), "?", font=self.fonts['badge'], fill=self.COLORS['white'])
+                
+        except Exception as e:
+            logger.error(f"Error drawing weather icon: {e}")
+
+
+    def _get_icon_code(self, condition_str):
+        """
+        Get weather icon code based on condition string
+        (fallback if weather_client not available)
+        
+        Args:
+            condition_str: Weather condition string
+            
+        Returns:
+            Icon code
+        """
+        condition = condition_str.lower() if condition_str else ""
+        
+        if "sunny" in condition or "clear" in condition:
+            return "sunny"
+        elif "cloudy" in condition or "overcast" in condition:
+            return "cloudy"
+        elif "rain" in condition or "wet" in condition:
+            return "rainy"
+        elif "snow" in condition or "flurries" in condition:
+            return "snowy"
+        elif "thunder" in condition:
+            return "stormy"
+        elif "fog" in condition or "mist" in condition:
+            return "foggy"
+        elif "wind" in condition:
+            return "windy"
+        elif "partly" in condition:
+            return "partly_cloudy"
+        else:
+            return "unknown"

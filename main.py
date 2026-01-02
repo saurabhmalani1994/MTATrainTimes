@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
+
 """
 MTA Train Display for 32x64 LED Matrix
 Main application entry point
-Displays real-time train arrivals for multiple routes at a station
+Displays real-time train arrivals + current weather
 """
 
 import time
 import logging
 from threading import Thread
-
 from config import Config
 from mta_client import MTAClient
+from weather_client import WeatherClient
 from display_manager import DisplayManager
 
 # Configure logging
@@ -18,23 +19,28 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
 logger = logging.getLogger(__name__)
 
-
 class MTATrainDisplay:
-    """Main application controller for MTA train display"""
+    """Main application controller for MTA train display + weather"""
     
     def __init__(self):
         """Initialize the display application"""
         self.config = Config
-        # Initialize MTA client - uses only real-time feed data
+        
+        # Initialize clients
         self.mta_client = MTAClient(api_key=self.config.MTA_API_KEY)
+        self.weather_client = WeatherClient()
         self.display_manager = DisplayManager()
         
+        # State
         self.running = False
         self.current_frame = "northbound"  # Start with northbound
         self.train_data = {"northbound": [], "southbound": []}
+        self.weather_data = None
         self.last_update = 0
+        self.last_weather_update = 0
         
         logger.info("MTATrainDisplay initialized")
         logger.info(f"  Stop: {self.config.STOP_NAME}")
@@ -43,47 +49,59 @@ class MTATrainDisplay:
         logger.info(f"  Display: {self.config.DISPLAY_WIDTH}x{self.config.DISPLAY_HEIGHT}")
     
     def fetch_train_data(self):
-        """Fetch train data from MTA API
-        
-        Uses real-time feed from MTA (no external files needed)
-        """
+        """Fetch train data from MTA API"""
         try:
             feed = self.mta_client.get_feed(self.config.FEED_PATH)
             if feed is None:
                 logger.warning("Failed to fetch feed data")
                 return
             
-            # Parse feed - extracts destination and direction from real-time data
+            # Parse feed
             self.train_data = self.mta_client.parse_feed(
-                feed, 
+                feed,
                 self.config.STOP_ID,
                 route_ids=self.config.ROUTE_IDS
             )
-            self.last_update = time.time()
             
+            self.last_update = time.time()
             logger.info(
                 f"Updated train data - "
                 f"Northbound: {len(self.train_data['northbound'])} trains, "
                 f"Southbound: {len(self.train_data['southbound'])} trains"
             )
-            
         except Exception as e:
             logger.error(f"Error fetching train data: {e}")
     
+    def fetch_weather_data(self):
+        """Fetch weather data from NOAA API"""
+        try:
+            self.weather_data = self.weather_client.fetch_weather()
+            self.last_weather_update = time.time()
+        except Exception as e:
+            logger.error(f"Error fetching weather data: {e}")
+    
     def update_loop(self):
-        """Background thread to update train data periodically"""
+        """Background thread to update data periodically"""
         while self.running:
             try:
+                # Update trains
                 self.fetch_train_data()
+                
+                # Update weather every 30 minutes (1800 seconds) or on first run
+                if time.time() - self.last_weather_update >= 1800 or self.weather_data is None:
+                    self.fetch_weather_data()
+                
                 time.sleep(self.config.API_UPDATE_INTERVAL)
             except Exception as e:
                 logger.error(f"Error in update loop: {e}")
-                time.sleep(5)  # Wait before retrying
+                time.sleep(5)
     
     def display_loop(self):
-        """Main display loop - alternates between northbound and southbound"""
-        frame_duration = self.config.FRAME_DURATION
+        """Main display loop - cycles through northbound, southbound, weather"""
+        frame_duration = self.config.FRAME_DURATION  # 10 seconds
         last_frame_switch = time.time()
+        frame_order = ["northbound", "southbound", "weather"]
+        frame_index = 0
         
         while self.running:
             try:
@@ -91,19 +109,22 @@ class MTATrainDisplay:
                 
                 # Switch frames every frame_duration seconds
                 if current_time - last_frame_switch > frame_duration:
-                    self.current_frame = (
-                        "southbound" 
-                        if self.current_frame == "northbound" 
-                        else "northbound"
-                    )
+                    frame_index = (frame_index + 1) % 3
+                    self.current_frame = frame_order[frame_index]
                     last_frame_switch = current_time
+                    logger.info(f"Switching to frame: {self.current_frame}")
                 
-                # Get the trains for current frame
-                direction = self.current_frame
-                trains = self.train_data[direction][:2]  # Get first 2 trains
-                
-                # Render the frame
-                self.display_manager.render_frame(direction, trains)
+                # Render based on current frame
+                if self.current_frame == "northbound":
+                    trains = self.train_data["northbound"][:2]
+                    self.display_manager.render_frame("northbound", trains)
+                    
+                elif self.current_frame == "southbound":
+                    trains = self.train_data["southbound"][:2]
+                    self.display_manager.render_frame("southbound", trains)
+                    
+                elif self.current_frame == "weather":
+                    self.display_manager.render_weather(self.weather_data)
                 
                 time.sleep(1 / self.config.DISPLAY_FPS)
                 
@@ -117,14 +138,15 @@ class MTATrainDisplay:
         self.running = True
         
         try:
-            # Start update thread (fetches new data every API_UPDATE_INTERVAL seconds)
+            # Start update thread
             update_thread = Thread(target=self.update_loop, daemon=True)
             update_thread.start()
             
             # Initial fetch
             self.fetch_train_data()
+            self.fetch_weather_data()
             
-            # Run display loop (main thread)
+            # Run display loop
             self.display_loop()
             
         except KeyboardInterrupt:
