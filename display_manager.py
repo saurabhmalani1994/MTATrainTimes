@@ -729,7 +729,7 @@ class DisplayManager:
             # ============================================================================
             # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
             # ============================================================================
-            y_row4 = y_row3 + row_height+2
+            y_row4 = y_row3 + row_height+1
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
             else:
