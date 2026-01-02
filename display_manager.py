@@ -656,7 +656,7 @@ class DisplayManager:
                 return
             
             # Weather icon parameters (static, will not move)
-            icon_x_center = 10
+            icon_x_center = 5
             icon_y_center = 15
             
             # Get weather condition and icon type
@@ -668,14 +668,14 @@ class DisplayManager:
             logger.debug(f"Weather condition: '{condition}' -> icon: '{icon_code}'")
             
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
-            info_x = 22
+            info_x = 15
             row_height = 7
             font_small = self.fonts['badge']
             
             # ============================================================================
             # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
             # ============================================================================
-            y_row1 = 2
+            y_row1 = 0
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
@@ -727,7 +727,7 @@ class DisplayManager:
             black_box_x1 = 0
             black_box_y1 = y_row2 - 1
             black_box_x2 = info_x - 1  # Stop just before right-aligned info area
-            black_box_y2 = y_row2 + 6
+            black_box_y2 = y_row2 + 10
             draw.rectangle(
                 [black_box_x1, black_box_y1, black_box_x2, black_box_y2],
                 fill=self.COLORS['black']
