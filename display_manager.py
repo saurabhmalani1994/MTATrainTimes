@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 """
-LED Display Manager - OPENSANS TRUETYPE FONT WITH SLIDING DESTINATIONS
+LED Display Manager - OPENSANS TRUETYPE FONT WITH SLIDING DESTINATIONS + NYAN CAT
 Handles rendering to 32x64 RGB LED matrix using SetPixel() method
 
 FEATURES:
 - OpenSans TrueType font rendering
 - Sliding destination text animation with proper clipping
 - Tunable font sizes via configuration
+- Nyan cat animation frame
 - All previous fixes maintained
-- Smaller font for 'NOW' time display
 """
 
 import logging
@@ -37,21 +37,24 @@ class DisplayManager:
         'magenta': (255, 0, 255),
         'gray': (128, 128, 128),
         'dark_gray': (64, 64, 64),
+        'pink': (255, 105, 180),
+        'orange': (255, 165, 0),
+        'purple': (128, 0, 128),
     }
     
     # Layout dimensions
     HEADER_HEIGHT = 5
-    ROW_HEIGHT = 12
-    COL_WIDTHS = [12, 30, 22]  # Train #, Destination, Time
-    DEST_MAX_WIDTH = 28  # Max pixels for destination text
+    ROW_HEIGHT = 13
+    COL_WIDTHS = [12, 32, 20]  # Train #, Destination, Time
+    DEST_MAX_WIDTH = 30  # Max pixels for destination text
     DEST_COL_X = 12  # Starting X position of destination column
     
     # Font configuration - TUNABLE SIZES
     FONT_CONFIG = {
         'header_size': 9,      # Header font size
-        'badge_size': 9,       # Train badge font size
+        'badge_size': 7,       # Train badge font size
         'dest_size': 9,        # Destination font size
-        'time_size': 10,        # Time font size
+        'time_size': 9,        # Time font size
         'time_now_size': 7,    # Smaller size for 'NOW' text
     }
     
@@ -61,6 +64,12 @@ class DisplayManager:
         'speed': 2,                # Pixels per frame
         'pause_frames': 30,        # Frames to pause at edges
         'cycle_duration': 120,     # Total frames per complete cycle
+    }
+    
+    # Nyan Cat animation configuration
+    NYAN_CAT_CONFIG = {
+        'num_frames': 6,           # Number of animation frames
+        'frame_duration': 8,       # Frames to display each animation frame
     }
     
     def __init__(self):
@@ -94,12 +103,12 @@ class DisplayManager:
         
         # Try to find OpenSans font file
         font_paths = [
-            # "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
-            # "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
-            # "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-            # "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            # "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         ]
         
         # First try to find OpenSans specifically
@@ -125,20 +134,15 @@ class DisplayManager:
                     font_file = path
                     logger.info(f"Using fallback font: {path}")
                     break
-
-        dejavu_fontfile = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-        nunito_fontfile = "/usr/share/fonts/truetype/nunito-sans/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf"
-        noto_fontfile = "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"
-        liberation_fontfile = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
         
         # Load fonts at different sizes
         if font_file:
             try:
-                fonts['header'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['header_size'])
-                fonts['badge'] = ImageFont.truetype(liberation_fontfile, self.FONT_CONFIG['badge_size'])
-                fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
-                fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
-                fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
+                fonts['header'] = ImageFont.truetype(font_file, self.FONT_CONFIG['header_size'])
+                fonts['badge'] = ImageFont.truetype(font_file, self.FONT_CONFIG['badge_size'])
+                fonts['dest'] = ImageFont.truetype(font_file, self.FONT_CONFIG['dest_size'])
+                fonts['time'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_size'])
+                fonts['time_now'] = ImageFont.truetype(font_file, self.FONT_CONFIG['time_now_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
                 logger.warning(f"Could not load TrueType font: {e}")
@@ -252,10 +256,10 @@ class DisplayManager:
                 
                 bbox = draw.textbbox((0, 0), time_text, font=time_font)
                 text_height = bbox[3] - bbox[1]
-                time_y = row_y + (self.ROW_HEIGHT - text_height) // 2 - 1
+                time_y = row_y + (self.ROW_HEIGHT - text_height) // 2
                 
                 draw.text(
-                    (col3_x + 1, time_y),
+                    (col3_x + 2, time_y),
                     time_text,
                     font=time_font,
                     fill=self.COLORS['cyan']
@@ -272,6 +276,102 @@ class DisplayManager:
                 
         except Exception as e:
             logger.error(f"Error rendering frame: {e}", exc_info=True)
+    
+    def render_nyan_cat_frame(self):
+        """
+        Render nyan cat animation frame to the LED matrix
+        """
+        try:
+            # Increment frame counter for animations
+            self.frame_count += 1
+            
+            # Create image for rendering
+            img = Image.new('RGB', (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT), self.COLORS['black'])
+            draw = ImageDraw.Draw(img)
+            
+            # Draw nyan cat animation
+            self.draw_nyan_cat(draw)
+            
+            # Display or save
+            if self.test_mode:
+                self.save_test_image(img, "nyan_cat")
+            else:
+                self.display_image(img)
+                
+        except Exception as e:
+            logger.error(f"Error rendering nyan cat frame: {e}", exc_info=True)
+    
+    def draw_nyan_cat(self, draw):
+        """
+        Draw animated nyan cat flying across the screen
+        
+        Args:
+            draw: PIL ImageDraw object
+        """
+        try:
+            # Calculate animation position (cat flies left to right, then repeats)
+            num_frames = self.NYAN_CAT_CONFIG['num_frames']
+            frame_duration = self.NYAN_CAT_CONFIG['frame_duration']
+            total_cycle = num_frames * frame_duration
+            
+            cycle_pos = (self.frame_count // frame_duration) % num_frames
+            
+            # Cat moves across screen (0 to 64 pixels)
+            cat_x = (self.frame_count * 2) % self.DISPLAY_WIDTH
+            
+            # Draw rainbow trail behind cat
+            for i in range(5):
+                trail_x = cat_x - (i * 4)
+                if trail_x >= 0 and trail_x < self.DISPLAY_WIDTH:
+                    trail_colors = [self.COLORS['red'], self.COLORS['orange'], self.COLORS['yellow'], 
+                                   self.COLORS['green'], self.COLORS['cyan']]
+                    color = trail_colors[i % 5]
+                    draw.rectangle([(trail_x, 12), (trail_x + 3, 16)], fill=color)
+            
+            # Draw nyan cat body (pixel art style)
+            # Cat head - light pink
+            draw.rectangle([(cat_x, 8), (cat_x + 6, 14)], fill=self.COLORS['pink'])
+            
+            # Cat ears - light pink
+            draw.rectangle([(cat_x + 1, 6), (cat_x + 2, 8)], fill=self.COLORS['pink'])  # Left ear
+            draw.rectangle([(cat_x + 4, 6), (cat_x + 5, 8)], fill=self.COLORS['pink'])  # Right ear
+            
+            # Eyes - white
+            draw.rectangle([(cat_x + 1, 9), (cat_x + 2, 10)], fill=self.COLORS['white'])   # Left eye
+            draw.rectangle([(cat_x + 4, 9), (cat_x + 5, 10)], fill=self.COLORS['white'])   # Right eye
+            
+            # Pupils - black
+            draw.rectangle([(cat_x + 1, 9), (cat_x + 2, 10)], fill=self.COLORS['black'])
+            draw.rectangle([(cat_x + 4, 9), (cat_x + 5, 10)], fill=self.COLORS['black'])
+            
+            # Body - light pink
+            draw.rectangle([(cat_x + 7, 9), (cat_x + 13, 15)], fill=self.COLORS['pink'])
+            
+            # Paws - light pink
+            draw.rectangle([(cat_x + 7, 15), (cat_x + 8, 16)], fill=self.COLORS['pink'])     # Front left
+            draw.rectangle([(cat_x + 12, 15), (cat_x + 13, 16)], fill=self.COLORS['pink'])   # Front right
+            
+            # Animated tail (swishes based on frame)
+            tail_swing = cycle_pos % 3
+            if tail_swing == 0:
+                draw.rectangle([(cat_x + 13, 11), (cat_x + 20, 12)], fill=self.COLORS['pink'])
+            elif tail_swing == 1:
+                draw.rectangle([(cat_x + 13, 10), (cat_x + 22, 11)], fill=self.COLORS['pink'])
+            else:
+                draw.rectangle([(cat_x + 13, 12), (cat_x + 20, 13)], fill=self.COLORS['pink'])
+            
+            # Draw "NYAN CAT" text in center
+            font = self.fonts['dest']
+            text = "NYAN CAT"
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            text_x = (self.DISPLAY_WIDTH - text_width) // 2
+            text_y = 22
+            draw.text((text_x, text_y), text, font=font, fill=self.COLORS['cyan'])
+            
+        except Exception as e:
+            logger.error(f"Error drawing nyan cat: {e}")
     
     def draw_header(self, draw, direction):
         """
