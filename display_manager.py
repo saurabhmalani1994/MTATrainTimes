@@ -697,7 +697,7 @@ class DisplayManager:
                 return
 
             # Weather icon parameters (static, will not move)
-            icon_x_center = 5
+            icon_x_center = 7
             icon_y_center = 20
 
             # Get weather condition and icon type
