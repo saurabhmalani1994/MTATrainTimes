@@ -682,7 +682,7 @@ class DisplayManager:
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
 
             # Get text dimensions
-            bbox = draw.textbbox((0, 0), date_str, font=font)
+            bbox = draw.textbbox((0, 0), date_str, font=font_small)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
 
