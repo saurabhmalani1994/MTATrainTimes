@@ -34,7 +34,7 @@ class WeatherClient:
         self.same_code = "036047"
         
         # NOAA API endpoints
-        self.observations_url = f"https://api.weather.gov/gridpoints/OKX/34,33/forecast"
+        self.observations_url = f"https://api.weather.gov/gridpoints/OKX/34,33"
         self.points_url = f"https://api.weather.gov/points/40.6625,-73.9978" 
         
     def fetch_weather(self):
