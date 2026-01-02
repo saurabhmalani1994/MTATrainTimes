@@ -141,7 +141,7 @@ class DisplayManager:
                 fonts['dest'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['dest_size'])
                 fonts['time'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_size'])
                 fonts['time_now'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['time_now_size'])
-                fonts['weather'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_size'])
+                fonts['weather'] = ImageFont.truetype(dejavu_fontfile, self.FONT_CONFIG['weather_size'])
                 fonts['weather_temp'] = ImageFont.truetype(nunito_fontfile, self.FONT_CONFIG['weather_temp_size'])
                 logger.info(f"✓ Loaded TrueType fonts from {font_file}")
             except Exception as e:
@@ -678,8 +678,18 @@ class DisplayManager:
             # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
             # ============================================================================
             y_row1 = -2
+
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
-            draw.text((0, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
+
+            # Get text dimensions
+            bbox = draw.textbbox((0, 0), date_str, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            x_pos = max(0, (self.DISPLAY_WIDTH - text_width) // 2)
+            y_pos = y_row1  # 2 pixels higher than default centered position
+            
+            draw.text((x_pos, y_pos), date_str, font=font_small, fill=self.COLORS['white'])
             
             # ============================================================================
             # ROW 2: Weather condition with DYNAMIC SCROLLING MARQUEE
@@ -698,7 +708,7 @@ class DisplayManager:
             # ============================================================================
             font_temp = self.fonts['weather_temp']
 
-            y_row3 = y_row2 + row_height+1
+            y_row3 = y_row2 + row_height
             if weather_data.temperature is not None:
                 if weather_data.real_feel is not None:
                     temp_text = f"{weather_data.temperature}°F ({weather_data.real_feel}°F)"
@@ -716,7 +726,7 @@ class DisplayManager:
             # ============================================================================
             # ROW 4: High and Low temps (e.g., "H: 68° L: 52°") - STATIC
             # ============================================================================
-            y_row4 = y_row3 + row_height+2
+            y_row4 = y_row3 + row_height
             if weather_data.high_temp is not None and weather_data.low_temp is not None:
                 hi_lo_text = f"H:{weather_data.high_temp}° L:{weather_data.low_temp}°"
             else:
