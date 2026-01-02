@@ -650,7 +650,7 @@ class DisplayManager:
                 return
             
             # LEFT THIRD: Weather icon (x=0 to x=20)
-            icon_x_center = 10
+            icon_x_center = 6
             icon_y_center = 15
             
             # Get weather condition and icon type
@@ -665,12 +665,12 @@ class DisplayManager:
             self._draw_weather_icon(draw, icon_code, icon_x_center, icon_y_center)
             
             # RIGHT TWO-THIRDS: Information (x=21 to x=63)
-            info_x = 22
+            info_x = 18
             row_height = 7
             font_small = self.fonts['weather']
             
             # Row 1: Date (e.g., "Fri, Jan 2 2026")
-            y_row1 = 2
+            y_row1 = 1
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
             draw.text((info_x, y_row1), date_str, font=font_small, fill=self.COLORS['white'])
             
