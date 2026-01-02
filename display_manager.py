@@ -859,7 +859,7 @@ class DisplayManager:
 
             slide_distance = text_width - available_width + 4  # +4 for padding
             pause_frames = 30  # Frames to pause at each position (at 30 FPS = 1 second)
-            slide_frames = 60  # Frames to slide across the full distance
+            slide_frames = 90  # Frames to slide across the full distance
             cycle = (pause_frames + slide_frames) * 2  # Full animation cycle
 
             # Get current frame in the animation cycle
