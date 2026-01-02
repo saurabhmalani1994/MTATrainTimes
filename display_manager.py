@@ -677,7 +677,7 @@ class DisplayManager:
             # ============================================================================
             # ROW 1: Date (e.g., "Fri, Jan 2 2026") - STATIC
             # ============================================================================
-            y_row1 = -2
+            y_row1 = -1
 
             date_str = weather_data.date_str if weather_data.date_str else datetime.now().strftime("%a, %b %-d %Y").replace(" 0", " ")
 
