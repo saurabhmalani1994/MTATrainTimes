@@ -7,6 +7,7 @@ Uses route + direction mapping to provide destinations
 
 import logging
 import requests
+import certifi
 import time
 from collections import defaultdict
 from google.transit import gtfs_realtime_pb2
@@ -65,6 +66,16 @@ class MTAClient:
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
+
+        # Configure SSL/TLS properly with certifi
+        try:
+            ca_bundle = certifi.where()
+            self.session.verify = ca_bundle
+            logger.debug(f"Using SSL certificates from: {ca_bundle}")
+        except Exception as e:
+            logger.warning(f"Could not load certifi bundle: {e}")
+            self.session.verify = True  # Fallback to system certificates
+
     
     def get_feed(self, feed_path):
         """Fetch GTFS-RT feed from MTA
