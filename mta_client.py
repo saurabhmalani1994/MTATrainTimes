@@ -11,6 +11,8 @@ import certifi
 import time
 from collections import defaultdict
 from google.transit import gtfs_realtime_pb2
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +66,19 @@ class MTAClient:
         self.api_key = api_key
         self.base_url = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds%2fnyct"
         self.session = requests.Session()
+        self.session.verify = False  # ← ADD THIS LINE
+
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
 
         # Configure SSL/TLS properly with certifi
-        try:
-            ca_bundle = certifi.where()
-            self.session.verify = ca_bundle
-            logger.debug(f"Using SSL certificates from: {ca_bundle}")
-        except Exception as e:
-            logger.warning(f"Could not load certifi bundle: {e}")
-            self.session.verify = True  # Fallback to system certificates
+        # try:
+        #     ca_bundle = certifi.where()
+        #     self.session.verify = ca_bundle
+        #     logger.debug(f"Using SSL certificates from: {ca_bundle}")
+        # except Exception as e:
+        #     logger.warning(f"Could not load certifi bundle: {e}")
+        #     self.session.verify = True  # Fallback to system certificates
 
     
     def get_feed(self, feed_path):
@@ -90,7 +94,11 @@ class MTAClient:
             url = f"{self.base_url}/{feed_path}"
             logger.debug(f"Fetching from {url}")
             
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(
+                url,
+                timeout=10,
+                verify=False  # Explicitly disable SSL verification
+            )
             response.raise_for_status()
             
             feed = gtfs_realtime_pb2.FeedMessage()
